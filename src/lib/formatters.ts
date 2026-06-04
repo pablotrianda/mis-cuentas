@@ -30,6 +30,17 @@ export function formatMonth(month: string): string {
   return monthFormatter.format(d)
 }
 
+const shortMonthFormatter = new Intl.DateTimeFormat('es-AR', {
+  month: 'short',
+  year: 'numeric',
+})
+
+export function formatShortMonth(month: string): string {
+  const [year, m] = month.split('-').map(Number)
+  const d = new Date(year!, m! - 1, 1)
+  return shortMonthFormatter.format(d)
+}
+
 export function centsToDecimal(cents: number): string {
   return (cents / 100).toFixed(2)
 }

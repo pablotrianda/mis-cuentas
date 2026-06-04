@@ -1,9 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { ChevronLeft, ChevronRight, CreditCard, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { useMonth } from '../../hooks/useMonth'
 import { useDashboardStore } from '../../stores/dashboardStore'
+import { useInstallmentStore } from '../../stores/installmentStore'
 import { formatMonth, formatARS } from '../../lib/formatters'
+import { computeDebtSummary } from '../../lib/future-debt'
 import { BalanceCard } from '../../components/BalanceCard'
 import { SummaryCardGrid } from '../../components/SummaryCardGrid'
 import { SectionCard } from '../../components/SectionCard'
@@ -12,8 +15,17 @@ import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { EmptyState } from '../../components/EmptyState'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const { month, prevMonth, nextMonth } = useMonth()
   const { data, loading, fetchAll } = useDashboardStore()
+  const installmentItems = useInstallmentStore((s) => s.items)
+  const fetchInstallments = useInstallmentStore((s) => s.fetchAll)
+
+  useEffect(() => {
+    fetchInstallments()
+  }, [fetchInstallments])
+
+  const debtSummary = useMemo(() => computeDebtSummary(installmentItems), [installmentItems])
 
   useEffect(() => {
     fetchAll(month)
@@ -99,6 +111,23 @@ export function DashboardPage() {
                 })}
               </div>
             </SectionCard>
+          )}
+
+          {debtSummary.futureDebt > 0 && (
+            <button
+              onClick={() => navigate('/future-debt')}
+              className="flex w-full animate-fade-in items-center justify-between rounded-xl bg-[#FFF4EE] p-4 text-left shadow-sm transition-opacity hover:opacity-90"
+            >
+              <div>
+                <p className="text-xs font-medium" style={{ color: '#F57C2D' }}>
+                  Deuda futura en cuotas
+                </p>
+                <p className="mt-0.5 text-lg font-bold" style={{ color: '#F57C2D' }}>
+                  {formatARS(debtSummary.futureDebt)}
+                </p>
+              </div>
+              <ChevronRightIcon className="shrink-0" size={20} style={{ color: '#F57C2D' }} />
+            </button>
           )}
 
           {data.categoryBreakdown.length > 0 && (

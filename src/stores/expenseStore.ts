@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type Expense } from '../lib/db'
-import type { CreateOneTimeExpense } from '../lib/shared-types'
+import type { CreateOneTimeExpense, UpdateOneTimeExpense } from '../lib/shared-types'
 import type { ExpenseResponseItem } from '../types'
 import { getProjectedExpenses } from '../lib/projections'
 
@@ -14,6 +14,7 @@ interface ExpenseState {
   setTypeFilter: (type: string | null) => void
   fetchAll: () => Promise<void>
   addOneTime: (data: CreateOneTimeExpense) => Promise<void>
+  updateOneTime: (id: string, data: UpdateOneTimeExpense) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -65,6 +66,14 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }
     try {
       await db.expenses.add(expense)
+      await get().fetchAll()
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+  updateOneTime: async (id, data) => {
+    try {
+      await db.expenses.update(id, data)
       await get().fetchAll()
     } catch (e) {
       set({ error: (e as Error).message })

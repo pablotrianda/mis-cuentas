@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type InstallmentPurchase } from '../lib/db'
-import type { CreateInstallmentPurchase } from '../lib/shared-types'
+import type { CreateInstallmentPurchase, UpdateInstallmentPurchase } from '../lib/shared-types'
 
 interface InstallmentState {
   items: InstallmentPurchase[]
@@ -8,6 +8,7 @@ interface InstallmentState {
   error: string | null
   fetchAll: () => Promise<void>
   add: (data: CreateInstallmentPurchase) => Promise<void>
+  update: (id: string, data: UpdateInstallmentPurchase) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -45,6 +46,16 @@ export const useInstallmentStore = create<InstallmentState>((set) => ({
     try {
       await db.installmentPurchases.add(item)
       set((s) => ({ items: [item, ...s.items] }))
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+  update: async (id, data) => {
+    try {
+      await db.installmentPurchases.update(id, data)
+      set((s) => ({
+        items: s.items.map((i) => (i.id === id ? { ...i, ...data } as InstallmentPurchase : i)),
+      }))
     } catch (e) {
       set({ error: (e as Error).message })
     }

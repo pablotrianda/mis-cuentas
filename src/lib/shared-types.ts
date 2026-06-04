@@ -16,6 +16,25 @@ export interface CreateOneTimeExpense {
   cardId?: string | null
 }
 
+export interface UpdateOneTimeExpense {
+  amount?: number
+  description?: string
+  date?: string
+  categoryId?: string
+  cardId?: string | null
+}
+
+export interface UpdateInstallmentPurchase {
+  description?: string
+  totalAmount?: number
+  installmentAmount?: number
+  currentInstallment?: number
+  totalInstallments?: number
+  purchaseDate?: string
+  categoryId?: string
+  cardId?: string | null
+}
+
 export interface CreateInstallmentPurchase {
   description: string
   totalAmount: number
