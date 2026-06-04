@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Download } from 'lucide-react'
+import { Download, X } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -8,14 +8,10 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function InstallAppButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    const stored = window.localStorage.getItem('pwa-installed')
-    if (stored) {
-      setIsInstalled(true)
-      return
-    }
+    if (window.matchMedia('(display-mode: standalone)').matches) return
 
     function handler(e: Event) {
       e.preventDefault()
@@ -23,12 +19,7 @@ export function InstallAppButton() {
     }
 
     window.addEventListener('beforeinstallprompt', handler)
-
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true)
-      setDeferredPrompt(null)
-      window.localStorage.setItem('pwa-installed', 'true')
-    })
+    window.addEventListener('appinstalled', () => setDeferredPrompt(null))
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
@@ -39,28 +30,35 @@ export function InstallAppButton() {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
     const choice = await deferredPrompt.userChoice
-    if (choice.outcome === 'dismissed') {
+    if (choice.outcome === 'accepted') {
       setDeferredPrompt(null)
     }
   }
 
-  if (isInstalled || !deferredPrompt) return null
+  if (!deferredPrompt || dismissed) return null
 
   return (
-    <div className="animate-slide-up rounded-xl bg-gradient-to-r from-primary-start to-primary-end p-4 shadow-sm">
+    <div className="mb-3 animate-slide-up rounded-xl bg-gradient-to-r from-primary-start to-primary-end p-3 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
           <Download className="h-5 w-5 text-white" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">Instalar MisCuentas</p>
-          <p className="text-xs text-white/80">Agregá la app a tu pantalla de inicio</p>
+          <p className="text-xs text-white/80 truncate">Acceso rápido desde tu pantalla de inicio</p>
         </div>
         <button
           onClick={handleInstall}
-          className="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-primary shadow-sm transition-opacity hover:opacity-90"
+          className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition-opacity hover:opacity-90"
         >
           Instalar
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          className="shrink-0 rounded-full p-1 text-white/70 hover:text-white"
+          aria-label="Cerrar"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>

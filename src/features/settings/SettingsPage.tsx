@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { CreditCard, ExpenseCategory } from '../../lib/shared-types'
 import { db, generateId, ensureDefaultCategories } from '../../lib/db'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
-import { InstallAppButton } from '../../components/InstallAppButton'
 
 export function SettingsPage() {
   const [cards, setCards] = useState<CreditCard[]>([])
@@ -73,7 +72,6 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <InstallAppButton />
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-text-primary">Tarjetas de crédito</h2>
