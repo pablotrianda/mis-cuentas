@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon, Check } from 'lucide-react'
 import { useMonth } from '../../hooks/useMonth'
 import { useDashboardStore } from '../../stores/dashboardStore'
 import { useInstallmentStore } from '../../stores/installmentStore'
@@ -28,6 +28,20 @@ export function DashboardPage() {
   const debtSummary = useMemo(
     () => computeDebtFromMonth(installmentItems, month),
     [installmentItems, month],
+  )
+
+  const markInstallmentPaid = useInstallmentStore((s) => s.markAsPaid)
+
+  const handleMarkPaid = useCallback(
+    async (syntheticId: string) => {
+      const rest = syntheticId.slice('proj-inst-'.length)
+      const lastDash = rest.lastIndexOf('-')
+      const purchaseId = rest.slice(0, lastDash)
+      if (!purchaseId) return
+      await markInstallmentPaid(purchaseId)
+      fetchAll(month)
+    },
+    [markInstallmentPaid, fetchAll, month],
   )
 
   useEffect(() => {
@@ -184,7 +198,7 @@ export function DashboardPage() {
             ) : (
               <div className="-mx-5 space-y-1">
                 {data.recentTransactions.map((t) => (
-                  <div key={t.id} className="animate-fade-in">
+                  <div key={t.id} className="group relative animate-fade-in">
                     <TransactionTile
                       amount={-t.amount}
                       description={t.description}
@@ -192,6 +206,15 @@ export function DashboardPage() {
                       categoryName={t.categoryName}
                       categoryColor={t.categoryColor}
                     />
+                    {t.type === 'installment' && (
+                      <button
+                        onClick={() => handleMarkPaid(t.id)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border border-green-200 bg-white text-green-600 opacity-0 transition-opacity hover:bg-green-50 group-hover:opacity-100"
+                        title="Marcar como pagada"
+                      >
+                        <Check size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

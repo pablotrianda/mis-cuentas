@@ -9,6 +9,7 @@ interface InstallmentState {
   fetchAll: () => Promise<void>
   add: (data: CreateInstallmentPurchase) => Promise<void>
   update: (id: string, data: UpdateInstallmentPurchase) => Promise<void>
+  markAsPaid: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -55,6 +56,25 @@ export const useInstallmentStore = create<InstallmentState>((set) => ({
       await db.installmentPurchases.update(id, data)
       set((s) => ({
         items: s.items.map((i) => (i.id === id ? { ...i, ...data } as InstallmentPurchase : i)),
+      }))
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+  markAsPaid: async (id) => {
+    try {
+      const purchase = await db.installmentPurchases.get(id)
+      if (!purchase) return
+      const next = purchase.currentInstallment + 1
+      const updates: UpdateInstallmentPurchase = {
+        currentInstallment: next,
+      }
+      if (next > purchase.totalInstallments) {
+        updates.status = 'FINISHED'
+      }
+      await db.installmentPurchases.update(id, updates)
+      set((s) => ({
+        items: s.items.map((i) => (i.id === id ? { ...i, ...updates } as InstallmentPurchase : i)),
       }))
     } catch (e) {
       set({ error: (e as Error).message })

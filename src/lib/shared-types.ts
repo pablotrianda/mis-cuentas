@@ -33,6 +33,7 @@ export interface UpdateInstallmentPurchase {
   purchaseDate?: string
   categoryId?: string
   cardId?: string | null
+  status?: InstallmentStatus
 }
 
 export interface CreateInstallmentPurchase {
