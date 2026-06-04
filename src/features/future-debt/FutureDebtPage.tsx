@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useInstallmentStore } from '../../stores/installmentStore'
+import { useCategories } from '../../hooks/useCategories'
+import { useCreditCards } from '../../hooks/useCreditCards'
 import { formatARS, formatDate } from '../../lib/formatters'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { EmptyState } from '../../components/EmptyState'
@@ -7,29 +9,38 @@ import { CategoryChip } from '../../components/CategoryChip'
 
 export function FutureDebtPage() {
   const { items, loading, fetchAll } = useInstallmentStore()
+  const { categories } = useCategories()
+  const { cards } = useCreditCards()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
 
-  const activeDebts = items.filter((d) => d.isActive)
-  const totalRemaining = activeDebts.reduce((s, d) => s + d.totalAmount, 0)
+  const activeDebts = items.filter((d) => d.status === 'ACTIVE')
+  const totalRemaining = activeDebts.reduce(
+    (s, d) => s + d.installmentAmount * (d.totalInstallments - d.currentInstallment + 1),
+    0,
+  )
+
+  const cardMap = new Map(cards.map((c) => [c.id, c]))
+  const catMap = new Map(categories.map((c) => [c.id, c]))
 
   const perCard = activeDebts.reduce(
     (map, d) => {
-      const key = d.cardId
+      const key = d.cardId ?? '__none'
       if (!map.has(key)) {
+        const card = d.cardId ? cardMap.get(d.cardId) : null
         map.set(key, {
-          cardId: d.cardId,
-          cardName: (d as any).card?.name ?? 'Desconocida',
-          cardColor: (d as any).card?.color ?? '#6B7280',
+          cardId: d.cardId ?? '__none',
+          cardName: card?.name ?? 'Sin tarjeta',
+          cardColor: card?.color ?? '#6B7280',
           total: 0,
           count: 0,
         })
       }
       const entry = map.get(key)!
-      entry.total += d.totalAmount
+      entry.total += d.installmentAmount * (d.totalInstallments - d.currentInstallment + 1)
       entry.count += 1
       return map
     },
@@ -48,7 +59,7 @@ export function FutureDebtPage() {
           <h3 className="text-sm font-semibold text-text-primary">Por tarjeta</h3>
           {Array.from(perCard.values()).map((c) => (
             <div
-              key={c.cardId}
+              key={c.cardId ?? '__none'}
               className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm"
             >
               <div className="flex items-center gap-2">
@@ -69,42 +80,50 @@ export function FutureDebtPage() {
       )}
 
       <div className="space-y-2">
-        {activeDebts.map((d) => (
-          <div
-            key={d.id}
-            className="rounded-xl bg-white px-4 py-3 shadow-sm"
-          >
+        {activeDebts.map((d) => {
+          const cat = catMap.get(d.categoryId)
+          const remaining = d.totalInstallments - d.currentInstallment + 1
+          return (
             <div
-              className="flex cursor-pointer items-center justify-between"
-              onClick={() => setExpandedId(expandedId === d.id ? null : d.id)}
+              key={d.id}
+              className="rounded-xl bg-white px-4 py-3 shadow-sm"
             >
-              <div>
-                <p className="text-sm font-medium text-text-primary">{d.description}</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <CategoryChip
-                    name={(d as any).category?.name ?? ''}
-                    color={(d as any).category?.color ?? '#6B7280'}
-                  />
-                  <span className="text-xs text-text-secondary">
-                    {d.totalInstallments} cuotas
-                  </span>
+              <div
+                className="flex cursor-pointer items-center justify-between"
+                onClick={() => setExpandedId(expandedId === d.id ? null : d.id)}
+              >
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{d.description}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {cat && <CategoryChip name={cat.name} color={cat.color} />}
+                    <span className="text-xs text-text-secondary">
+                      Cuota {d.currentInstallment}/{d.totalInstallments}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-expense">
+                    {formatARS(d.installmentAmount * remaining)}
+                  </p>
+                  <p className="text-xs text-text-secondary">{formatDate(d.purchaseDate)}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-expense">{formatARS(d.totalAmount)}</p>
-                <p className="text-xs text-text-secondary">{formatDate(d.purchaseDate)}</p>
-              </div>
+              {expandedId === d.id && (
+                <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-text-secondary">
+                  <p>
+                    {remaining} cuota{remaining > 1 ? 's' : ''} restante{remaining > 1 ? 's' : ''} de{' '}
+                    {formatARS(d.installmentAmount)} c/u
+                    {d.totalAmount % d.totalInstallments !== 0 && (
+                      <span className="opacity-60">
+                        {' '}(última: {formatARS(d.installmentAmount + (d.totalAmount % d.totalInstallments))})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
-            {expandedId === d.id && (
-              <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-text-secondary">
-                <p>
-                  {d.totalInstallments} cuotas de{' '}
-                  {formatARS(Math.floor(d.totalAmount / d.totalInstallments))}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

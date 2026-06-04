@@ -31,13 +31,15 @@ export const useInstallmentStore = create<InstallmentState>((set) => ({
     const now = new Date().toISOString()
     const item: InstallmentPurchase = {
       id: generateId(),
+      description: data.description,
       totalAmount: data.totalAmount,
+      installmentAmount: data.installmentAmount,
+      currentInstallment: data.currentInstallment,
       totalInstallments: data.totalInstallments,
       purchaseDate: data.purchaseDate,
-      description: data.description,
+      cardId: data.cardId ?? null,
       categoryId: data.categoryId,
-      cardId: data.cardId,
-      isActive: true,
+      status: 'ACTIVE',
       createdAt: now,
     }
     try {
@@ -49,9 +51,9 @@ export const useInstallmentStore = create<InstallmentState>((set) => ({
   },
   remove: async (id) => {
     try {
-      await db.installmentPurchases.update(id, { isActive: false })
+      await db.installmentPurchases.update(id, { status: 'FINISHED' })
       set((s) => ({
-        items: s.items.map((i) => (i.id === id ? { ...i, isActive: false } : i)),
+        items: s.items.map((i) => (i.id === id ? { ...i, status: 'FINISHED' } : i)),
       }))
     } catch (e) {
       set({ error: (e as Error).message })

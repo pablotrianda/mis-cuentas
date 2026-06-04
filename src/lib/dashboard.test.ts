@@ -22,24 +22,23 @@ async function seedFullData() {
   ])
   await db.expenses.bulkAdd([
     { id: generateId(), amount: 5000, description: 'Café', date: '2026-06-01',
-      categoryId: 'cat-b', cardId: 'card-1', paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now },
+      categoryId: 'cat-b', cardId: 'card-1', paymentType: 'ONE_TIME', createdAt: now },
     { id: generateId(), amount: 15000, description: 'Almuerzo', date: '2026-06-10',
-      categoryId: 'cat-b', cardId: 'card-2', paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now },
+      categoryId: 'cat-b', cardId: 'card-2', paymentType: 'ONE_TIME', createdAt: now },
     { id: generateId(), amount: 8000, description: 'Taxi', date: '2026-06-05',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now },
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now },
   ])
   await db.installmentPurchases.add({
-    id: 'inst-1', totalAmount: 120000, totalInstallments: 3,
-    purchaseDate: '2026-06-01', description: 'Laptop',
-    categoryId: 'cat-b', cardId: 'card-1', isActive: true, createdAt: now,
+    id: 'inst-1', description: 'Laptop',
+    totalAmount: 120000, installmentAmount: 40000,
+    currentInstallment: 1, totalInstallments: 3,
+    purchaseDate: '2026-06-01',
+    categoryId: 'cat-b', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
   })
-  await db.fixedExpenses.add({
-    id: 'fixed-1', amount: 50000, description: 'Alquiler',
-    categoryId: 'cat-a', cardId: null, startDate: '2026-01-01',
-    isActive: true, createdAt: now,
+  await db.recurringExpenses.add({
+    id: 'rec-1', amount: 50000, description: 'Alquiler',
+    categoryId: 'cat-a', startDate: '2026-01-01',
+    active: true, createdAt: now,
   })
 }
 
@@ -49,9 +48,9 @@ describe('getDashboardData', () => {
     expect(data.totalIncomes).toBe(0)
     expect(data.totalExpenses).toBe(0)
     expect(data.balance).toBe(0)
-    expect(data.totalByPaymentType.single).toBe(0)
-    expect(data.totalByPaymentType.installment).toBe(0)
-    expect(data.totalByPaymentType.fixed).toBe(0)
+    expect(data.totalByPaymentType.ONE_TIME).toBe(0)
+    expect(data.totalByPaymentType.INSTALLMENTS).toBe(0)
+    expect(data.totalByPaymentType.RECURRING).toBe(0)
     expect(data.perCardSpending).toEqual([])
     expect(data.categoryBreakdown).toEqual([])
     expect(data.recentTransactions).toEqual([])
@@ -70,9 +69,9 @@ describe('getDashboardData', () => {
     await seedFullData()
     const data = await getDashboardData('2026-06')
 
-    expect(data.totalByPaymentType.single).toBe(28000)
-    expect(data.totalByPaymentType.installment).toBe(40000)
-    expect(data.totalByPaymentType.fixed).toBe(50000)
+    expect(data.totalByPaymentType.ONE_TIME).toBe(28000)
+    expect(data.totalByPaymentType.INSTALLMENTS).toBe(40000)
+    expect(data.totalByPaymentType.RECURRING).toBe(50000)
   })
 
   it('computes per-card spending', async () => {

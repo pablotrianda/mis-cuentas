@@ -9,11 +9,11 @@ export interface ExpenseResponseItem {
   cardId: string | null
   cardName: string | null
   cardColor: string | null
-  paymentType: 'single' | 'installment' | 'fixed'
-  type: 'real' | 'installment' | 'fixed'
-  installmentPurchaseId: string | null
+  paymentType: 'ONE_TIME' | 'INSTALLMENTS' | 'RECURRING'
+  type: 'real' | 'installment' | 'recurring'
+  purchaseId: string | null
   installmentNumber: number | null
   totalInstallments: number | null
-  fixedExpenseId: string | null
+  recurringId: string | null
   createdAt: string | null
 }

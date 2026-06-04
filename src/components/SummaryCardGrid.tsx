@@ -2,37 +2,37 @@ import { Banknote, CreditCard, Receipt, CalendarClock } from 'lucide-react'
 import { formatARS } from '../lib/formatters'
 
 interface SummaryCardGridProps {
-  single: number
-  installment: number
-  fixed: number
+  oneTime: number
+  installments: number
+  recurring: number
 }
 
 const cards = [
   {
-    key: 'single' as const,
+    key: 'oneTime' as const,
     label: 'Pago único',
     bg: '#E8F5EF',
     icon: Banknote,
     iconBg: '#2BB673',
   },
   {
-    key: 'installment' as const,
+    key: 'installments' as const,
     label: 'En cuotas',
     bg: '#FFF3E8',
     icon: CreditCard,
     iconBg: '#F58B2A',
   },
   {
-    key: 'fixed' as const,
-    label: 'Gastos fijos',
+    key: 'recurring' as const,
+    label: 'Recurrentes',
     bg: '#F1EEFF',
     icon: CalendarClock,
     iconBg: '#5B5FEF',
   },
 ]
 
-export function SummaryCardGrid({ single, installment, fixed }: SummaryCardGridProps) {
-  const values = { single, installment, fixed }
+export function SummaryCardGrid({ oneTime, installments, recurring }: SummaryCardGridProps) {
+  const values = { oneTime, installments, recurring }
 
   return (
     <div className="grid grid-cols-3 gap-3">

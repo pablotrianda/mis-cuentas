@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type Expense } from '../lib/db'
-import type { CreateExpense } from '../lib/shared-types'
+import type { CreateOneTimeExpense } from '../lib/shared-types'
 import type { ExpenseResponseItem } from '../types'
 import { getProjectedExpenses } from '../lib/projections'
 
@@ -13,8 +13,7 @@ interface ExpenseState {
   setMonth: (month: string) => void
   setTypeFilter: (type: string | null) => void
   fetchAll: () => Promise<void>
-  add: (data: CreateExpense) => Promise<void>
-  update: (id: string, data: Partial<CreateExpense>) => Promise<void>
+  addOneTime: (data: CreateOneTimeExpense) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -52,7 +51,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set({ error: (e as Error).message, loading: false })
     }
   },
-  add: async (data) => {
+  addOneTime: async (data) => {
     const now = new Date().toISOString()
     const expense: Expense = {
       id: generateId(),
@@ -61,8 +60,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       date: data.date,
       categoryId: data.categoryId,
       cardId: data.cardId ?? null,
-      paymentType: data.paymentType,
-      installmentPurchaseId: null,
+      paymentType: 'ONE_TIME',
       createdAt: now,
     }
     try {
@@ -72,29 +70,16 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set({ error: (e as Error).message })
     }
   },
-  update: async (id, data) => {
-    try {
-      await db.expenses.update(id, {
-        ...data,
-        cardId: data.cardId ?? null,
-      })
-      await get().fetchAll()
-    } catch (e) {
-      set({ error: (e as Error).message })
-    }
-  },
   remove: async (id) => {
     try {
-      if (id.startsWith('proj-inst-') || id.startsWith('proj-fixed-')) {
-        if (id.startsWith('proj-inst-')) {
-          const rest = id.slice('proj-inst-'.length)
-          const lastDash = rest.lastIndexOf('-')
-          const purchaseId = rest.slice(0, lastDash)
-          await db.installmentPurchases.update(purchaseId, { isActive: false })
-        } else {
-          const fixedId = id.slice('proj-fixed-'.length)
-          await db.fixedExpenses.update(fixedId, { isActive: false })
-        }
+      if (id.startsWith('proj-inst-')) {
+        const rest = id.slice('proj-inst-'.length)
+        const lastDash = rest.lastIndexOf('-')
+        const purchaseId = rest.slice(0, lastDash)
+        await db.installmentPurchases.update(purchaseId, { status: 'FINISHED' })
+      } else if (id.startsWith('proj-rec-')) {
+        const recurringId = id.slice('proj-rec-'.length)
+        await db.recurringExpenses.update(recurringId, { active: false })
       } else {
         await db.expenses.delete(id)
       }

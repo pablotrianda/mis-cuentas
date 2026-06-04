@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useMonth } from '../../hooks/useMonth'
 import { useCategories } from '../../hooks/useCategories'
 import { useCreditCards } from '../../hooks/useCreditCards'
 import { useExpenseStore } from '../../stores/expenseStore'
-import { formatMonth, formatDate } from '../../lib/formatters'
+import { formatMonth, formatARS } from '../../lib/formatters'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { EmptyState } from '../../components/EmptyState'
 import { TransactionTile } from '../../components/TransactionTile'
 import { AmountInput, displayToCents } from '../../components/AmountInput'
-import { DatePicker } from '../../components/DatePicker'
+import { Stepper } from '../../components/Stepper'
 import type { ExpenseResponseItem } from '../../types'
+import type { PaymentType } from '../../lib/shared-types'
 
 function todayString(): string {
   const now = new Date()
@@ -19,70 +20,172 @@ function todayString(): string {
   return `${y}-${m}-${d}`
 }
 
+function currentMonthString(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
 const FILTERS = [
   { key: null, label: 'Todos' },
-  { key: 'single', label: 'Pago único' },
-  { key: 'installment', label: 'Cuotas' },
-  { key: 'fixed', label: 'Fijos' },
+  { key: 'ONE_TIME', label: 'Una vez' },
+  { key: 'INSTALLMENTS', label: 'Cuotas' },
+  { key: 'RECURRING', label: 'Recurrentes' },
 ] as const
 
 const BADGE_LABELS: Record<string, string> = {
   installment: 'Proyectado',
-  fixed: 'Mensual',
+  recurring: 'Mensual',
 }
 
 export function ExpensesPage() {
   const { month, prevMonth, nextMonth } = useMonth()
   const { categories } = useCategories()
   const { cards } = useCreditCards()
-  const { items, loading, error, typeFilter, setTypeFilter, fetchAll, add, remove } = useExpenseStore()
+  const { items, loading, error, typeFilter, setTypeFilter, fetchAll, addOneTime, remove } =
+    useExpenseStore()
   const [showForm, setShowForm] = useState(false)
-  const [amount, setAmount] = useState('')
+
+  const [paymentType, setPaymentType] = useState<PaymentType>('ONE_TIME')
   const [description, setDescription] = useState('')
-  const [date, setDate] = useState(todayString())
+  const [amount, setAmount] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [cardId, setCardId] = useState('')
-  const [paymentType, setPaymentType] = useState<'single' | 'installment' | 'fixed'>('single')
+  const [date, setDate] = useState(todayString())
+
+  const [totalAmount, setTotalAmount] = useState('')
+  const [totalInstallments, setTotalInstallments] = useState(3)
+  const [currentInstallment, setCurrentInstallment] = useState(1)
+  const [purchaseDate, setPurchaseDate] = useState(todayString())
+
+  const [recurringAmount, setRecurringAmount] = useState('')
+  const [startDate, setStartDate] = useState(currentMonthString())
 
   useEffect(() => {
     fetchAll()
   }, [month, typeFilter, fetchAll])
 
+  const installmentAmount = useMemo(() => {
+    const total = displayToCents(totalAmount)
+    return total > 0 ? Math.floor(total / totalInstallments) : 0
+  }, [totalAmount, totalInstallments])
+
+  const summaryCards = useMemo(() => {
+    const oneTime = items
+      .filter((i) => i.paymentType === 'ONE_TIME')
+      .reduce((s, i) => s + i.amount, 0)
+    const installments = items
+      .filter((i) => i.paymentType === 'INSTALLMENTS')
+      .reduce((s, i) => s + i.amount, 0)
+    const recurring = items
+      .filter((i) => i.paymentType === 'RECURRING')
+      .reduce((s, i) => s + i.amount, 0)
+    return [
+      {
+        label: 'Pago único',
+        amount: oneTime,
+        bg: 'bg-[#E8F5EF]',
+        icon: '+',
+        filter: 'ONE_TIME',
+      },
+      {
+        label: 'Cuotas',
+        amount: installments,
+        bg: 'bg-[#FFF3E8]',
+        icon: '#',
+        filter: 'INSTALLMENTS',
+      },
+      {
+        label: 'Recurrentes',
+        amount: recurring,
+        bg: 'bg-[#F1EEFF]',
+        icon: '~',
+        filter: 'RECURRING',
+      },
+    ]
+  }, [items])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount.trim() || displayToCents(amount) <= 0) return
-    if (!date.trim()) return
-    if (!categoryId) return
     try {
-      await add({
-        amount: displayToCents(amount),
-        description,
-        date,
-        categoryId,
-        cardId: cardId || null,
-        paymentType,
-      })
-      setAmount('')
-      setDescription('')
-      setDate(todayString())
-      setCategoryId('')
-      setCardId('')
-      setPaymentType('single')
+      if (paymentType === 'ONE_TIME') {
+        if (!amount.trim() || displayToCents(amount) <= 0) return
+        if (!categoryId) return
+        await addOneTime({
+          amount: displayToCents(amount),
+          description,
+          date,
+          categoryId,
+          cardId: cardId || null,
+        })
+        setAmount('')
+        setDescription('')
+        setDate(todayString())
+        setCategoryId('')
+        setCardId('')
+      } else if (paymentType === 'INSTALLMENTS') {
+        if (!totalAmount.trim() || displayToCents(totalAmount) <= 0) return
+        if (!description.trim()) return
+        if (!categoryId) return
+        const { useInstallmentStore } = await import('../../stores/installmentStore')
+        await useInstallmentStore.getState().add({
+          description,
+          totalAmount: displayToCents(totalAmount),
+          installmentAmount,
+          currentInstallment,
+          totalInstallments,
+          purchaseDate,
+          categoryId,
+          cardId: cardId || null,
+        })
+        setDescription('')
+        setTotalAmount('')
+        setTotalInstallments(3)
+        setCurrentInstallment(1)
+        setPurchaseDate(todayString())
+        setCategoryId('')
+        setCardId('')
+      } else {
+        if (!recurringAmount.trim() || displayToCents(recurringAmount) <= 0) return
+        if (!description.trim()) return
+        if (!categoryId) return
+        const { useRecurringExpenseStore } = await import('../../stores/recurringExpenseStore')
+        await useRecurringExpenseStore.getState().add({
+          amount: displayToCents(recurringAmount),
+          description,
+          categoryId,
+          startDate: `${startDate}-01`,
+        })
+        setRecurringAmount('')
+        setDescription('')
+        setCategoryId('')
+        setStartDate(currentMonthString())
+      }
+      setPaymentType('ONE_TIME')
       setShowForm(false)
+      await fetchAll()
     } catch {
-      alert('Error al guardar el gasto')
+      alert('Error al guardar')
     }
   }
 
   async function handleDelete(item: ExpenseResponseItem) {
-    const label = item.type === 'installment' ? 'desactivar la compra en cuotas' : 'eliminar'
+    const label =
+      item.type === 'installment'
+        ? 'finalizar la compra en cuotas'
+        : item.type === 'recurring'
+          ? 'desactivar el gasto recurrente'
+          : 'eliminar'
     if (!confirm(`¿${label}?`)) return
     try {
       await remove(item.id)
     } catch {
-      alert('Error al eliminar el gasto')
+      alert('Error al eliminar')
     }
   }
+
+  const currentTabLabel = FILTERS.find((f) => f.key === typeFilter)?.label ?? 'Todos'
 
   return (
     <div className="space-y-4">
@@ -108,6 +211,28 @@ export function ExpensesPage() {
         <div className="rounded-xl bg-red-50 px-4 py-2 text-xs text-red-600">{error}</div>
       )}
 
+      <div className="grid grid-cols-3 gap-2">
+        {summaryCards.map((card) => (
+          <button
+            key={card.filter}
+            onClick={() => setTypeFilter(typeFilter === card.filter ? null : card.filter)}
+            className={`rounded-xl p-3 text-left transition-all active:scale-[0.97] ${
+              card.bg
+            } ${
+              typeFilter === card.filter ? 'ring-2 ring-primary' : ''
+            }`}
+          >
+            <div className="mb-1 flex items-center gap-1">
+              <span className="text-xs font-bold text-text-secondary">{card.icon}</span>
+              <span className="text-[10px] font-medium text-text-secondary">{card.label}</span>
+            </div>
+            <p className="text-sm font-bold text-text-primary tabular-nums">
+              {formatARS(card.amount)}
+            </p>
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map((f) => (
           <button
@@ -126,7 +251,9 @@ export function ExpensesPage() {
 
       {loading && <LoadingSpinner />}
 
-      {!loading && items.length === 0 && <EmptyState message="Sin gastos este mes" />}
+      {!loading && items.length === 0 && (
+        <EmptyState message={`Sin gastos este mes — ${currentTabLabel.toLowerCase()}`} />
+      )}
 
       <div className="space-y-2">
         {items.map((item) => (
@@ -152,58 +279,197 @@ export function ExpensesPage() {
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-xl bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold">Nuevo gasto</h3>
+
+          <div className="mb-4 flex gap-2">
+            {(['ONE_TIME', 'INSTALLMENTS', 'RECURRING'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPaymentType(t)}
+                className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition-colors ${
+                  paymentType === t
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                }`}
+              >
+                {t === 'ONE_TIME'
+                  ? 'Una vez'
+                  : t === 'INSTALLMENTS'
+                    ? 'Cuotas'
+                    : 'Recurrente'}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-3">
-            <AmountInput value={amount} onChange={setAmount} />
+            {paymentType === 'ONE_TIME' && (
+              <>
+                <AmountInput value={amount} onChange={setAmount} />
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descripción"
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Categoría</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={cardId}
+                  onChange={(e) => setCardId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Sin tarjeta</option>
+                  {cards.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+                />
+              </>
+            )}
 
-            <select
-              value={paymentType}
-              onChange={(e) => setPaymentType(e.target.value as 'single' | 'installment' | 'fixed')}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-            >
-              <option value="single">Pago único</option>
-              <option value="installment">En cuotas</option>
-              <option value="fixed">Fijo mensual</option>
-            </select>
+            {paymentType === 'INSTALLMENTS' && (
+              <>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descripción"
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+                <AmountInput value={totalAmount} onChange={setTotalAmount} />
 
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripción"
-              required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-            />
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-text-secondary">
+                    Cuotas totales
+                  </label>
+                  <Stepper
+                    value={totalInstallments}
+                    min={2}
+                    max={60}
+                    onChange={setTotalInstallments}
+                  />
+                </div>
 
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Categoría</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-text-secondary">
+                    Cuota n&deg;
+                  </label>
+                  <Stepper
+                    value={currentInstallment}
+                    min={1}
+                    max={totalInstallments}
+                    onChange={setCurrentInstallment}
+                  />
+                </div>
 
-            <select
-              value={cardId}
-              onChange={(e) => setCardId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Sin tarjeta</option>
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+                {displayToCents(totalAmount) > 0 && (
+                  <p className="text-xs text-text-secondary">
+                    Cuota de <span className="font-semibold">{formatARS(installmentAmount)}</span>
+                    {displayToCents(totalAmount) % totalInstallments !== 0 && (
+                      <span className="text-[10px] opacity-60">
+                        {' '}
+                        (&uacute;ltima cuota {formatARS(installmentAmount + (displayToCents(totalAmount) % totalInstallments))})
+                      </span>
+                    )}
+                  </p>
+                )}
 
-            <DatePicker value={date} onChange={setDate} />
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Categoría</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
 
-            <div className="flex gap-2">
+                <select
+                  value={cardId}
+                  onChange={(e) => setCardId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Sin tarjeta</option>
+                  {cards.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+                />
+              </>
+            )}
+
+            {paymentType === 'RECURRING' && (
+              <>
+                <AmountInput value={recurringAmount} onChange={setRecurringAmount} />
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descripción"
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Categoría</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-text-secondary">
+                    Desde (mes)
+                  </label>
+                  <input
+                    type="month"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-2 pt-1">
               <button
                 type="submit"
                 className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
@@ -223,7 +489,10 @@ export function ExpensesPage() {
       )}
 
       <button
-        onClick={() => setShowForm(true)}
+        onClick={() => {
+          setPaymentType('ONE_TIME')
+          setShowForm(true)
+        }}
         className="fixed bottom-20 right-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl text-white shadow-lg transition-transform hover:scale-105"
       >
         +

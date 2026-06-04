@@ -1,12 +1,12 @@
-import { db, type InstallmentPurchase, type FixedExpense } from './db'
+import { db, type InstallmentPurchase, type RecurringExpense } from './db'
 import type { ExpenseResponseItem } from '../types'
 
 function getInstallmentDate(
   purchaseDate: string,
-  index: number,
+  indexOffset: number,
 ): { year: number; month: number } {
   const [year, month] = purchaseDate.split('-').map(Number)
-  const totalMonths = year! * 12 + (month! - 1) + index
+  const totalMonths = year! * 12 + (month! - 1) + indexOffset
   return {
     year: Math.floor(totalMonths / 12),
     month: (totalMonths % 12) + 1,
@@ -18,22 +18,20 @@ function projectInstallment(
   category: { name: string; color: string },
   card: { name: string; color: string } | null,
   targetMonth: string,
-): ExpenseResponseItem[] {
-  if (!purchase.isActive) return []
+): ExpenseResponseItem | null {
+  if (purchase.status !== 'ACTIVE') return null
 
   const [targetYear, targetMonthNum] = targetMonth.split('-').map(Number)
-  const baseAmount = Math.floor(purchase.totalAmount / purchase.totalInstallments)
-  const remainder = purchase.totalAmount - baseAmount * purchase.totalInstallments
-  const results: ExpenseResponseItem[] = []
 
-  for (let i = 0; i < purchase.totalInstallments; i++) {
-    const { year, month } = getInstallmentDate(purchase.purchaseDate, i)
+  const remaining = purchase.totalInstallments - purchase.currentInstallment
+  for (let i = 0; i <= remaining; i++) {
+    const installmentIndex = purchase.currentInstallment + i - 1
+    const { year, month } = getInstallmentDate(purchase.purchaseDate, installmentIndex)
     if (year === targetYear && month === targetMonthNum) {
-      const amount = i === purchase.totalInstallments - 1 ? baseAmount + remainder : baseAmount
-      const num = i + 1
-      results.push({
+      const num = purchase.currentInstallment + i
+      return {
         id: `proj-inst-${purchase.id}-${num}`,
-        amount,
+        amount: purchase.installmentAmount,
         description: `${purchase.description} (${num}/${purchase.totalInstallments})`,
         date: `${year}-${String(month).padStart(2, '0')}-01`,
         categoryId: purchase.categoryId,
@@ -42,59 +40,52 @@ function projectInstallment(
         cardId: purchase.cardId,
         cardName: card?.name ?? null,
         cardColor: card?.color ?? null,
-        paymentType: 'installment',
+        paymentType: 'INSTALLMENTS',
         type: 'installment',
-        installmentPurchaseId: purchase.id,
+        purchaseId: purchase.id,
         installmentNumber: num,
         totalInstallments: purchase.totalInstallments,
-        fixedExpenseId: null,
+        recurringId: null,
         createdAt: null,
-      })
+      }
     }
   }
 
-  return results
+  return null
 }
 
-function projectFixed(
-  fixed: FixedExpense,
+function projectRecurring(
+  recurring: RecurringExpense,
   category: { name: string; color: string },
-  card: { name: string; color: string } | null,
   targetMonth: string,
 ): ExpenseResponseItem | null {
-  if (!fixed.isActive) return null
+  if (!recurring.active) return null
 
   const [year, month] = targetMonth.split('-').map(Number)
   const targetEnd = new Date(year!, month!, 0)
-  const startDate = new Date(fixed.startDate)
+  const startDate = new Date(recurring.startDate)
 
   if (startDate > targetEnd) return null
 
   return {
-    id: `proj-fixed-${fixed.id}`,
-    amount: fixed.amount,
-    description: fixed.description,
+    id: `proj-rec-${recurring.id}`,
+    amount: recurring.amount,
+    description: recurring.description,
     date: `${targetMonth}-01`,
-    categoryId: fixed.categoryId,
+    categoryId: recurring.categoryId,
     categoryName: category.name,
     categoryColor: category.color,
-    cardId: fixed.cardId,
-    cardName: card?.name ?? null,
-    cardColor: card?.color ?? null,
-    paymentType: 'fixed',
-    type: 'fixed',
-    installmentPurchaseId: null,
+    cardId: null,
+    cardName: null,
+    cardColor: null,
+    paymentType: 'RECURRING',
+    type: 'recurring',
+    purchaseId: null,
     installmentNumber: null,
     totalInstallments: null,
-    fixedExpenseId: fixed.id,
+    recurringId: recurring.id,
     createdAt: null,
   }
-}
-
-function mapRealExpense(
-  e: ExpenseResponseItem,
-): ExpenseResponseItem {
-  return e
 }
 
 export async function getProjectedExpenses(month: string): Promise<ExpenseResponseItem[]> {
@@ -104,10 +95,10 @@ export async function getProjectedExpenses(month: string): Promise<ExpenseRespon
     .toArray()
 
   const allInstallments = await db.installmentPurchases.toArray()
-  const activeInstallments = allInstallments.filter((p) => p.isActive)
+  const activeInstallments = allInstallments.filter((p) => p.status === 'ACTIVE')
 
-  const allFixed = await db.fixedExpenses.toArray()
-  const activeFixed = allFixed.filter((f) => f.isActive)
+  const allRecurring = await db.recurringExpenses.toArray()
+  const activeRecurring = allRecurring.filter((r) => r.active)
 
   const allCategories = await db.expenseCategories.toArray()
   const allCards = await db.creditCards.toArray()
@@ -129,29 +120,30 @@ export async function getProjectedExpenses(month: string): Promise<ExpenseRespon
       cardId: e.cardId,
       cardName: card?.name ?? null,
       cardColor: card?.color ?? null,
-      paymentType: e.paymentType,
+      paymentType: 'ONE_TIME',
       type: 'real',
-      installmentPurchaseId: e.installmentPurchaseId,
+      purchaseId: null,
       installmentNumber: null,
       totalInstallments: null,
-      fixedExpenseId: null,
+      recurringId: null,
       createdAt: e.createdAt,
     }
   })
 
-  const installmentItems = activeInstallments.flatMap((p) => {
-    const cat = catMap.get(p.categoryId)
-    const card = cardMap.get(p.cardId)
-    return projectInstallment(p, cat ?? { name: '', color: '#7B8190' }, card ?? null, month)
-  })
-
-  const fixedItems = activeFixed
-    .map((f) => {
-      const cat = catMap.get(f.categoryId)
-      const card = f.cardId ? cardMap.get(f.cardId) : undefined
-      return projectFixed(f, cat ?? { name: '', color: '#7B8190' }, card ?? null, month)
+  const installmentItems = activeInstallments
+    .map((p) => {
+      const cat = catMap.get(p.categoryId)
+      const card = p.cardId ? cardMap.get(p.cardId) : undefined
+      return projectInstallment(p, cat ?? { name: '', color: '#7B8190' }, card ?? null, month)
     })
     .filter((x): x is ExpenseResponseItem => x !== null)
 
-  return [...realItems, ...installmentItems, ...fixedItems]
+  const recurringItems = activeRecurring
+    .map((r) => {
+      const cat = catMap.get(r.categoryId)
+      return projectRecurring(r, cat ?? { name: '', color: '#7B8190' }, month)
+    })
+    .filter((x): x is ExpenseResponseItem => x !== null)
+
+  return [...realItems, ...installmentItems, ...recurringItems]
 }

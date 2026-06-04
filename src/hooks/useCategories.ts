@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { ExpenseCategory } from '../lib/shared-types'
-import { db } from '../lib/db'
-import { ensureDefaultCategories } from '../lib/db'
+import type { ExpenseCategory } from '../lib/db'
+import { db, ensureDefaultCategories } from '../lib/db'
 
 export function useCategories() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([])

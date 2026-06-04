@@ -50,9 +50,9 @@ export function DashboardPage() {
           />
 
           <SummaryCardGrid
-            single={data.totalByPaymentType.single ?? 0}
-            installment={data.totalByPaymentType.installment ?? 0}
-            fixed={data.totalByPaymentType.fixed ?? 0}
+            oneTime={data.totalByPaymentType.ONE_TIME ?? 0}
+            installments={data.totalByPaymentType.INSTALLMENTS ?? 0}
+            recurring={data.totalByPaymentType.RECURRING ?? 0}
           />
 
           {data.perCardSpending.length > 0 && (

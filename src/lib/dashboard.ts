@@ -13,14 +13,14 @@ export async function getDashboardData(month: string): Promise<DashboardData> {
   const totalIncomes = incomes.reduce((sum, i) => sum + i.amount, 0)
   const totalExpenses = projectedExpenses.reduce((sum, e) => sum + e.amount, 0)
 
-  const singleTotal = projectedExpenses
-    .filter((e) => e.paymentType === 'single')
+  const oneTimeTotal = projectedExpenses
+    .filter((e) => e.paymentType === 'ONE_TIME')
     .reduce((sum, e) => sum + e.amount, 0)
   const installmentTotal = projectedExpenses
-    .filter((e) => e.paymentType === 'installment')
+    .filter((e) => e.paymentType === 'INSTALLMENTS')
     .reduce((sum, e) => sum + e.amount, 0)
-  const fixedTotal = projectedExpenses
-    .filter((e) => e.paymentType === 'fixed')
+  const recurringTotal = projectedExpenses
+    .filter((e) => e.paymentType === 'RECURRING')
     .reduce((sum, e) => sum + e.amount, 0)
 
   const cardTotals = new Map<string, { cardName: string; cardColor: string; amount: number }>()
@@ -53,7 +53,9 @@ export async function getDashboardData(month: string): Promise<DashboardData> {
     percentage: totalExpenses > 0 ? Math.round((v.amount / totalExpenses) * 10000) / 100 : 0,
   }))
 
-  const sortedByDate = [...projectedExpenses].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  const sortedByDate = [...projectedExpenses].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+  )
   const recentTransactions = sortedByDate.slice(0, 5).map((e) => ({
     id: e.id,
     amount: e.amount,
@@ -69,9 +71,9 @@ export async function getDashboardData(month: string): Promise<DashboardData> {
     totalExpenses,
     balance: totalIncomes - totalExpenses,
     totalByPaymentType: {
-      single: singleTotal,
-      installment: installmentTotal,
-      fixed: fixedTotal,
+      ONE_TIME: oneTimeTotal,
+      INSTALLMENTS: installmentTotal,
+      RECURRING: recurringTotal,
     },
     perCardSpending: [...cardTotals.entries()].map(([cardId, v]) => ({
       cardId,

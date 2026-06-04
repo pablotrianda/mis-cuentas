@@ -29,13 +29,11 @@ describe('getProjectedExpenses', () => {
     const now = new Date().toISOString()
     await db.expenses.add({
       id: generateId(), amount: 5000, description: 'Café', date: '2026-06-10',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now,
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now,
     })
     await db.expenses.add({
       id: generateId(), amount: 10000, description: 'Almuerzo', date: '2026-06-11',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now,
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
@@ -48,11 +46,9 @@ describe('getProjectedExpenses', () => {
     const now = new Date().toISOString()
     await db.expenses.bulkAdd([
       { id: generateId(), amount: 5000, description: 'Junio', date: '2026-06-10',
-        categoryId: 'cat-b', cardId: null, paymentType: 'single',
-        installmentPurchaseId: null, createdAt: now },
+        categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now },
       { id: generateId(), amount: 6000, description: 'Julio', date: '2026-07-10',
-        categoryId: 'cat-b', cardId: null, paymentType: 'single',
-        installmentPurchaseId: null, createdAt: now },
+        categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now },
     ])
 
     const items = await getProjectedExpenses('2026-06')
@@ -64,14 +60,16 @@ describe('getProjectedExpenses', () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 120000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Laptop',
-      categoryId: 'cat-c', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Laptop',
+      totalAmount: 120000, installmentAmount: 40000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-c', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(1)
-    expect(items[0]!.paymentType).toBe('installment')
+    expect(items[0]!.paymentType).toBe('INSTALLMENTS')
     expect(items[0]!.amount).toBe(40000)
     expect(items[0]!.description).toContain('Laptop')
     expect(items[0]!.installmentNumber).toBe(1)
@@ -79,13 +77,15 @@ describe('getProjectedExpenses', () => {
     expect(items[0]!.id).toMatch(/^proj-inst-/)
   })
 
-  it('does not project installments for inactive purchases', async () => {
+  it('does not project installments for FINISHED purchases', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 120000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Laptop',
-      categoryId: 'cat-c', cardId: 'card-1', isActive: false, createdAt: now,
+      id: 'inst-1', description: 'Laptop',
+      totalAmount: 120000, installmentAmount: 40000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-c', cardId: 'card-1', status: 'FINISHED', createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
@@ -96,9 +96,11 @@ describe('getProjectedExpenses', () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 30000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Curso',
-      categoryId: 'cat-c', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Curso',
+      totalAmount: 30000, installmentAmount: 10000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-c', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
 
     const june = await getProjectedExpenses('2026-06')
@@ -120,91 +122,100 @@ describe('getProjectedExpenses', () => {
     expect(september).toHaveLength(0)
   })
 
-  it('applies remainder to last installment', async () => {
+  it('projects currentInstallment offset correctly', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 10000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'División exacta',
-      categoryId: 'cat-c', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Curso diferido',
+      totalAmount: 50000, installmentAmount: 10000,
+      currentInstallment: 3, totalInstallments: 5,
+      purchaseDate: '2026-04-01',
+      categoryId: 'cat-c', cardId: null, status: 'ACTIVE', createdAt: now,
     })
 
     const june = await getProjectedExpenses('2026-06')
-    expect(june[0]!.amount).toBe(3333)
+    expect(june).toHaveLength(1)
+    expect(june[0]!.installmentNumber).toBe(3)
 
     const july = await getProjectedExpenses('2026-07')
-    expect(july[0]!.amount).toBe(3333)
+    expect(july).toHaveLength(1)
+    expect(july[0]!.installmentNumber).toBe(4)
 
     const august = await getProjectedExpenses('2026-08')
-    expect(august[0]!.amount).toBe(3334)
+    expect(august).toHaveLength(1)
+    expect(august[0]!.installmentNumber).toBe(5)
+
+    const september = await getProjectedExpenses('2026-09')
+    expect(september).toHaveLength(0)
   })
 
-  it('projects active fixed expenses', async () => {
+  it('projects active recurring expenses', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
-    await db.fixedExpenses.add({
-      id: 'fixed-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', cardId: null, startDate: '2026-01-01',
-      isActive: true, createdAt: now,
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Alquiler',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      active: true, createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(1)
-    expect(items[0]!.paymentType).toBe('fixed')
+    expect(items[0]!.paymentType).toBe('RECURRING')
     expect(items[0]!.amount).toBe(50000)
     expect(items[0]!.description).toBe('Alquiler')
-    expect(items[0]!.id).toMatch(/^proj-fixed-/)
+    expect(items[0]!.id).toMatch(/^proj-rec-/)
   })
 
-  it('does not project fixed expense that has not started yet', async () => {
+  it('does not project recurring expense that has not started yet', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
-    await db.fixedExpenses.add({
-      id: 'fixed-1', amount: 50000, description: 'Seguro',
-      categoryId: 'cat-a', cardId: null, startDate: '2026-07-01',
-      isActive: true, createdAt: now,
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Seguro',
+      categoryId: 'cat-a', startDate: '2026-07-01',
+      active: true, createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(0)
   })
 
-  it('does not project inactive fixed expenses', async () => {
+  it('does not project inactive recurring expenses', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
-    await db.fixedExpenses.add({
-      id: 'fixed-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', cardId: null, startDate: '2026-01-01',
-      isActive: false, createdAt: now,
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Alquiler',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      active: false, createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(0)
   })
 
-  it('merges real expenses, installments, and fixed expenses', async () => {
+  it('merges real expenses, installments, and recurring expenses', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.expenses.add({
       id: generateId(), amount: 5000, description: 'Café', date: '2026-06-10',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now,
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now,
     })
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 30000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Curso',
-      categoryId: 'cat-c', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Curso',
+      totalAmount: 30000, installmentAmount: 10000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-c', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
-    await db.fixedExpenses.add({
-      id: 'fixed-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', cardId: null, startDate: '2026-01-01',
-      isActive: true, createdAt: now,
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Alquiler',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      active: true, createdAt: now,
     })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(3)
 
     const types = items.map((i) => i.type).sort()
-    expect(types).toEqual(['fixed', 'installment', 'real'])
+    expect(types).toEqual(['installment', 'real', 'recurring'])
   })
 })

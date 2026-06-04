@@ -1,5 +1,6 @@
-export type PaymentType = 'single' | 'installment' | 'fixed'
-export type ExpenseType = 'real' | 'installment' | 'fixed'
+export type PaymentType = 'ONE_TIME' | 'INSTALLMENTS' | 'RECURRING'
+export type ExpenseType = 'real' | 'installment' | 'recurring'
+export type InstallmentStatus = 'ACTIVE' | 'FINISHED'
 
 export interface CreateIncome {
   amount: number
@@ -7,38 +8,37 @@ export interface CreateIncome {
   date: string
 }
 
-export interface CreateExpense {
+export interface CreateOneTimeExpense {
   amount: number
   description: string
   date: string
   categoryId: string
-  cardId: string | null | undefined
-  paymentType: PaymentType
+  cardId?: string | null
 }
 
 export interface CreateInstallmentPurchase {
+  description: string
   totalAmount: number
+  installmentAmount: number
+  currentInstallment: number
   totalInstallments: number
   purchaseDate: string
-  description: string
   categoryId: string
-  cardId: string
+  cardId?: string | null
 }
 
-export interface CreateFixedExpense {
+export interface CreateRecurringExpense {
   amount: number
   description: string
   categoryId: string
-  cardId?: string | null
   startDate: string
 }
 
-export interface UpdateFixedExpense {
-  isActive?: boolean
+export interface UpdateRecurringExpense {
+  active?: boolean
   amount?: number
   description?: string
   categoryId?: string
-  cardId?: string | null
 }
 
 export interface CreditCard {
@@ -64,9 +64,9 @@ export interface DashboardData {
   totalExpenses: number
   balance: number
   totalByPaymentType: {
-    single: number
-    installment: number
-    fixed: number
+    ONE_TIME: number
+    INSTALLMENTS: number
+    RECURRING: number
   }
   perCardSpending: Array<{
     cardId: string

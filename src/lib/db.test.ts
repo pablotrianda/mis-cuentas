@@ -26,9 +26,9 @@ describe('db schema', () => {
       'creditCards',
       'expenseCategories',
       'expenses',
-      'fixedExpenses',
       'incomes',
       'installmentPurchases',
+      'recurringExpenses',
     ])
   })
 })
@@ -54,9 +54,9 @@ describe('ensureDefaultCategories', () => {
 
   it('creates categories with correct structure', async () => {
     await ensureDefaultCategories()
-    const cat = await db.expenseCategories.get('cat-alquiler')
+    const cat = await db.expenseCategories.get('cat-comida')
     expect(cat).toBeDefined()
-    expect(cat!.name).toBe('Alquiler')
+    expect(cat!.name).toBe('Comida')
     expect(cat!.isDefault).toBe(true)
     expect(typeof cat!.createdAt).toBe('string')
   })
@@ -100,8 +100,7 @@ describe('expenses table', () => {
       date: '2026-06-01',
       categoryId: 'cat-otros',
       cardId: null,
-      paymentType: 'single',
-      installmentPurchaseId: null,
+      paymentType: 'ONE_TIME',
       createdAt: now,
     })
 

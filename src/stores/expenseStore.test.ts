@@ -31,14 +31,13 @@ describe('useExpenseStore', () => {
     expect(error).toBeNull()
   })
 
-  it('adds a single expense', async () => {
-    await useExpenseStore.getState().add({
+  it('adds a one-time expense', async () => {
+    await useExpenseStore.getState().addOneTime({
       amount: 5000,
       description: 'Café',
       date: '2026-06-10',
       categoryId: 'cat-b',
       cardId: null,
-      paymentType: 'single',
     })
 
     const dbCount = await db.expenses.count()
@@ -53,8 +52,7 @@ describe('useExpenseStore', () => {
     const now = new Date().toISOString()
     await db.expenses.add({
       id: generateId(), amount: 5000, description: 'Café', date: '2026-06-10',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now,
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now,
     })
 
     await useExpenseStore.getState().fetchAll()
@@ -67,56 +65,59 @@ describe('useExpenseStore', () => {
   it('fetchAll includes projected installments', async () => {
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 30000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Curso',
-      categoryId: 'cat-b', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Curso',
+      totalAmount: 30000, installmentAmount: 10000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-b', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
 
     await useExpenseStore.getState().fetchAll()
     const { items } = useExpenseStore.getState()
     const installment = items.filter((i) => i.type === 'installment')
     expect(installment).toHaveLength(1)
-    expect(installment[0]!.paymentType).toBe('installment')
+    expect(installment[0]!.paymentType).toBe('INSTALLMENTS')
   })
 
-  it('filter by type works', async () => {
+  it('filter by paymentType works', async () => {
     const now = new Date().toISOString()
     await db.expenses.add({
       id: generateId(), amount: 5000, description: 'Café', date: '2026-06-10',
-      categoryId: 'cat-b', cardId: null, paymentType: 'single',
-      installmentPurchaseId: null, createdAt: now,
+      categoryId: 'cat-b', cardId: null, paymentType: 'ONE_TIME', createdAt: now,
     })
 
-    useExpenseStore.getState().setTypeFilter('single')
+    useExpenseStore.getState().setTypeFilter('ONE_TIME')
     await useExpenseStore.getState().fetchAll()
     const { items, typeFilter } = useExpenseStore.getState()
-    expect(typeFilter).toBe('single')
-    expect(items.every((i) => i.paymentType === 'single')).toBe(true)
+    expect(typeFilter).toBe('ONE_TIME')
+    expect(items.every((i) => i.paymentType === 'ONE_TIME')).toBe(true)
   })
 
   it('removing a projected installment deactivates the purchase', async () => {
     const now = new Date().toISOString()
     await db.installmentPurchases.add({
-      id: 'inst-1', totalAmount: 30000, totalInstallments: 3,
-      purchaseDate: '2026-06-01', description: 'Curso',
-      categoryId: 'cat-b', cardId: 'card-1', isActive: true, createdAt: now,
+      id: 'inst-1', description: 'Curso',
+      totalAmount: 30000, installmentAmount: 10000,
+      currentInstallment: 1, totalInstallments: 3,
+      purchaseDate: '2026-06-01',
+      categoryId: 'cat-b', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
 
     await useExpenseStore.getState().remove('proj-inst-inst-1-1')
     const purchase = await db.installmentPurchases.get('inst-1')
-    expect(purchase?.isActive).toBe(false)
+    expect(purchase?.status).toBe('FINISHED')
   })
 
-  it('removing a projected fixed expense deactivates it', async () => {
+  it('removing a projected recurring expense deactivates it', async () => {
     const now = new Date().toISOString()
-    await db.fixedExpenses.add({
-      id: 'fixed-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', cardId: null, startDate: '2026-01-01',
-      isActive: true, createdAt: now,
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Alquiler',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      active: true, createdAt: now,
     })
 
-    await useExpenseStore.getState().remove('proj-fixed-fixed-1')
-    const fixed = await db.fixedExpenses.get('fixed-1')
-    expect(fixed?.isActive).toBe(false)
+    await useExpenseStore.getState().remove('proj-rec-rec-1')
+    const rec = await db.recurringExpenses.get('rec-1')
+    expect(rec?.active).toBe(false)
   })
 })

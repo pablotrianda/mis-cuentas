@@ -15,31 +15,31 @@ export interface Expense {
   date: string
   categoryId: string
   cardId: string | null
-  paymentType: 'single' | 'installment' | 'fixed'
-  installmentPurchaseId: string | null
+  paymentType: 'ONE_TIME'
   createdAt: string
 }
 
 export interface InstallmentPurchase {
   id: string
+  description: string
   totalAmount: number
+  installmentAmount: number
+  currentInstallment: number
   totalInstallments: number
   purchaseDate: string
-  description: string
+  cardId: string | null
   categoryId: string
-  cardId: string
-  isActive: boolean
+  status: 'ACTIVE' | 'FINISHED'
   createdAt: string
 }
 
-export interface FixedExpense {
+export interface RecurringExpense {
   id: string
-  amount: number
   description: string
+  amount: number
   categoryId: string
-  cardId: string | null
   startDate: string
-  isActive: boolean
+  active: boolean
   createdAt: string
 }
 
@@ -62,14 +62,14 @@ export interface ExpenseCategory {
 }
 
 const DEFAULT_CATEGORIES: Omit<ExpenseCategory, 'createdAt'>[] = [
-  { id: 'cat-alquiler', name: 'Alquiler', icon: 'home', color: '#5B5FEF', isDefault: true },
-  { id: 'cat-servicios', name: 'Servicios', icon: 'zap', color: '#F58B2A', isDefault: true },
-  { id: 'cat-supermercado', name: 'Supermercado', icon: 'shopping-cart', color: '#2BB673', isDefault: true },
-  { id: 'cat-transporte', name: 'Transporte', icon: 'car', color: '#E05A5A', isDefault: true },
+  { id: 'cat-comida', name: 'Comida', icon: 'shopping-cart', color: '#2BB673', isDefault: true },
+  { id: 'cat-transporte', name: 'Transporte', icon: 'car', color: '#F58B2A', isDefault: true },
+  { id: 'cat-servicios', name: 'Servicios', icon: 'zap', color: '#E05A5A', isDefault: true },
   { id: 'cat-salud', name: 'Salud', icon: 'heart', color: '#E05A5A', isDefault: true },
-  { id: 'cat-entretenimiento', name: 'Entretenimiento', icon: 'music', color: '#A98BFF', isDefault: true },
+  { id: 'cat-compras', name: 'Compras', icon: 'shopping-bag', color: '#A98BFF', isDefault: true },
   { id: 'cat-educacion', name: 'Educación', icon: 'book', color: '#6366F1', isDefault: true },
-  { id: 'cat-ropa', name: 'Ropa', icon: 'shirt', color: '#F1A8D0', isDefault: true },
+  { id: 'cat-entretenimiento', name: 'Entretenimiento', icon: 'music', color: '#F1A8D0', isDefault: true },
+  { id: 'cat-suscripciones', name: 'Suscripciones', icon: 'credit-card', color: '#5B5FEF', isDefault: true },
   { id: 'cat-otros', name: 'Otros', icon: 'more-horizontal', color: '#7B8190', isDefault: true },
 ]
 
@@ -77,16 +77,16 @@ const db = new Dexie('misCuentas') as Dexie & {
   incomes: EntityTable<Income, 'id'>
   expenses: EntityTable<Expense, 'id'>
   installmentPurchases: EntityTable<InstallmentPurchase, 'id'>
-  fixedExpenses: EntityTable<FixedExpense, 'id'>
+  recurringExpenses: EntityTable<RecurringExpense, 'id'>
   creditCards: EntityTable<CreditCard, 'id'>
   expenseCategories: EntityTable<ExpenseCategory, 'id'>
 }
 
-db.version(1).stores({
+db.version(2).stores({
   incomes: 'id, date, createdAt',
-  expenses: 'id, date, categoryId, cardId, paymentType, createdAt',
-  installmentPurchases: 'id, isActive, createdAt',
-  fixedExpenses: 'id, startDate, isActive, createdAt',
+  expenses: 'id, date, categoryId, cardId, createdAt',
+  installmentPurchases: 'id, status, categoryId, cardId, createdAt',
+  recurringExpenses: 'id, active, createdAt',
   creditCards: 'id',
   expenseCategories: 'id, isDefault',
 })
