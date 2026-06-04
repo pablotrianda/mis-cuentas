@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { CreditCard } from '@miscuentas/shared'
+import type { CreditCard } from '../lib/shared-types'
 import { db } from '../lib/db'
 
 export function useCreditCards() {

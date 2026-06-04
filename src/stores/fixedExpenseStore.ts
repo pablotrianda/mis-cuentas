@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type FixedExpense } from '../lib/db'
-import type { CreateFixedExpense, UpdateFixedExpense } from '@miscuentas/shared'
+import type { CreateFixedExpense, UpdateFixedExpense } from '../lib/shared-types'
 
 interface FixedExpenseState {
   items: FixedExpense[]

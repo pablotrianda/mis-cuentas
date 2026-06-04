@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { CreditCard, ExpenseCategory } from '@miscuentas/shared'
+import type { CreditCard, ExpenseCategory } from '../../lib/shared-types'
 import { db, generateId, ensureDefaultCategories } from '../../lib/db'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { InstallAppButton } from '../../components/InstallAppButton'

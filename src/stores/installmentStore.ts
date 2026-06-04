@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type InstallmentPurchase } from '../lib/db'
-import type { CreateInstallmentPurchase } from '@miscuentas/shared'
+import type { CreateInstallmentPurchase } from '../lib/shared-types'
 
 interface InstallmentState {
   items: InstallmentPurchase[]

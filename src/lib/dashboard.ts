@@ -1,4 +1,4 @@
-import type { DashboardData } from '@miscuentas/shared'
+import type { DashboardData } from './shared-types'
 import { getProjectedExpenses } from './projections'
 import { db } from './db'
 

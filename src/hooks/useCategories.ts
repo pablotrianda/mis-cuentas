@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ExpenseCategory } from '@miscuentas/shared'
+import type { ExpenseCategory } from '../lib/shared-types'
 import { db } from '../lib/db'
 import { ensureDefaultCategories } from '../lib/db'
 

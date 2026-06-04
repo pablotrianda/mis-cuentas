@@ -8,8 +8,5 @@
     "noEmit": true
   },
   "include": ["src"],
-  "exclude": ["src/sw.ts"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "exclude": ["src/sw.ts"]
 }

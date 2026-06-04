@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type Income } from '../lib/db'
-import type { CreateIncome } from '@miscuentas/shared'
+import type { CreateIncome } from '../lib/shared-types'
 
 interface IncomeState {
   items: Income[]

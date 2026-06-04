@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DashboardData } from '@miscuentas/shared'
+import type { DashboardData } from '../lib/shared-types'
 import { getDashboardData } from '../lib/dashboard'
 
 interface DashboardState {

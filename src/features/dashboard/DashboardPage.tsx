@@ -135,7 +135,7 @@ export function DashboardPage() {
                       <span className="text-text-secondary">{c.categoryName}</span>
                     </div>
                     <span className="font-medium text-text-primary">
-                      {(c.percentage * 100).toFixed(1)}%
+                      {c.percentage.toFixed(1)}%
                     </span>
                   </div>
                 ))}

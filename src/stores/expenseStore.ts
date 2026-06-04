@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { db, generateId, type Expense } from '../lib/db'
-import type { CreateExpense } from '@miscuentas/shared'
+import type { CreateExpense } from '../lib/shared-types'
 import type { ExpenseResponseItem } from '../types'
 import { getProjectedExpenses } from '../lib/projections'
 
