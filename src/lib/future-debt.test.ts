@@ -3,6 +3,7 @@ import type { InstallmentPurchase } from './db'
 import {
   computeDebtSummary,
   computeCardGroups,
+  computeDebtFromMonth,
   computeRemainingDebt,
   computeRemainingInstallments,
   computeProgress,
@@ -183,5 +184,99 @@ describe('computeIsFinished', () => {
   it('returns true when current >= total', () => {
     expect(computeIsFinished(makePurchase({ currentInstallment: 10, totalInstallments: 10 }))).toBe(true)
     expect(computeIsFinished(makePurchase({ currentInstallment: 11, totalInstallments: 10 }))).toBe(true)
+  })
+})
+
+describe('computeDebtFromMonth', () => {
+  it('returns zeros for empty list', () => {
+    const s = computeDebtFromMonth([], '2026-06')
+    expect(s.futureDebt).toBe(0)
+    expect(s.pendingInstallments).toBe(0)
+    expect(s.nextMonthAmount).toBe(0)
+  })
+
+  it('counts all installments from ref month forward', () => {
+    // purchase from Jan 2026, 6 installments, current=1 → installments in Jan-Jun
+    const items = [
+      makePurchase({
+        purchaseDate: '2026-01-01',
+        installmentAmount: 10000,
+        currentInstallment: 1,
+        totalInstallments: 6,
+      }),
+    ]
+    // from June → only installments in June (index 5) = 1 installment
+    const s = computeDebtFromMonth(items, '2026-06')
+    expect(s.futureDebt).toBe(10000)
+    expect(s.pendingInstallments).toBe(1)
+    expect(s.nextMonthAmount).toBe(10000)
+  })
+
+  it('shows less debt when viewing a later month', () => {
+    const items = [
+      makePurchase({
+        purchaseDate: '2026-01-01',
+        installmentAmount: 10000,
+        currentInstallment: 1,
+        totalInstallments: 6,
+      }),
+    ]
+    const fromApril = computeDebtFromMonth(items, '2026-04')
+    // installments in Apr/May/Jun = 3
+    expect(fromApril.futureDebt).toBe(30000)
+    expect(fromApril.pendingInstallments).toBe(3)
+    expect(fromApril.nextMonthAmount).toBe(10000)
+
+    const fromJune = computeDebtFromMonth(items, '2026-06')
+    // installments in Jun = 1
+    expect(fromJune.futureDebt).toBe(10000)
+    expect(fromJune.pendingInstallments).toBe(1)
+  })
+
+  it('returns zero when ref month is past all installments', () => {
+    const items = [
+      makePurchase({
+        purchaseDate: '2026-01-01',
+        installmentAmount: 10000,
+        currentInstallment: 6,
+        totalInstallments: 6,
+      }),
+    ]
+    const s = computeDebtFromMonth(items, '2026-07')
+    expect(s.futureDebt).toBe(0)
+    expect(s.pendingInstallments).toBe(0)
+  })
+
+  it('respects currentInstallment offset', () => {
+    // purchase from Apr 2026, current=3, total=5
+    // installment 3 = Jun, 4 = Jul, 5 = Aug
+    const items = [
+      makePurchase({
+        purchaseDate: '2026-04-01',
+        installmentAmount: 10000,
+        currentInstallment: 3,
+        totalInstallments: 5,
+      }),
+    ]
+    const s = computeDebtFromMonth(items, '2026-05')
+    // from May: Jun/Jul/Aug = 3 installments
+    expect(s.futureDebt).toBe(30000)
+    expect(s.pendingInstallments).toBe(3)
+    // next month amount for May = 0 (no installment in May)
+    expect(s.nextMonthAmount).toBe(0)
+  })
+
+  it('handles FINISHED purchases', () => {
+    const items = [
+      makePurchase({
+        status: 'FINISHED',
+        purchaseDate: '2026-01-01',
+        installmentAmount: 10000,
+        currentInstallment: 6,
+        totalInstallments: 6,
+      }),
+    ]
+    const s = computeDebtFromMonth(items, '2026-01')
+    expect(s.futureDebt).toBe(0)
   })
 })

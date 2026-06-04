@@ -6,7 +6,7 @@ import { useMonth } from '../../hooks/useMonth'
 import { useDashboardStore } from '../../stores/dashboardStore'
 import { useInstallmentStore } from '../../stores/installmentStore'
 import { formatMonth, formatARS } from '../../lib/formatters'
-import { computeDebtSummary } from '../../lib/future-debt'
+import { computeDebtFromMonth } from '../../lib/future-debt'
 import { BalanceCard } from '../../components/BalanceCard'
 import { SummaryCardGrid } from '../../components/SummaryCardGrid'
 import { SectionCard } from '../../components/SectionCard'
@@ -25,7 +25,10 @@ export function DashboardPage() {
     fetchInstallments()
   }, [fetchInstallments])
 
-  const debtSummary = useMemo(() => computeDebtSummary(installmentItems), [installmentItems])
+  const debtSummary = useMemo(
+    () => computeDebtFromMonth(installmentItems, month),
+    [installmentItems, month],
+  )
 
   useEffect(() => {
     fetchAll(month)

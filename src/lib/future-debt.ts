@@ -81,3 +81,36 @@ export function computeEndDate(purchase: InstallmentPurchase): string {
 export function computeIsFinished(purchase: InstallmentPurchase): boolean {
   return purchase.currentInstallment >= purchase.totalInstallments
 }
+
+function getInstallmentMonth(purchaseDate: string, indexOffset: number): string {
+  const [year, month] = purchaseDate.split('-').map(Number)
+  const totalMonths = year! * 12 + (month! - 1) + indexOffset
+  const y = Math.floor(totalMonths / 12)
+  const m = (totalMonths % 12) + 1
+  return `${y}-${String(m).padStart(2, '0')}`
+}
+
+export function computeDebtFromMonth(
+  items: InstallmentPurchase[],
+  refMonth: string,
+): DebtSummary {
+  const active = items.filter((i) => i.status === 'ACTIVE')
+  let futureDebt = 0
+  let pendingInstallments = 0
+  let nextMonthAmount = 0
+
+  for (const p of active) {
+    for (let i = p.currentInstallment - 1; i < p.totalInstallments; i++) {
+      const instMonth = getInstallmentMonth(p.purchaseDate, i)
+      if (instMonth >= refMonth) {
+        futureDebt += p.installmentAmount
+        pendingInstallments += 1
+        if (instMonth === refMonth) {
+          nextMonthAmount += p.installmentAmount
+        }
+      }
+    }
+  }
+
+  return { futureDebt, pendingInstallments, nextMonthAmount }
+}
