@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #5B5FEF;
+  --color-primary-start: #5B5FEF;
+  --color-primary-end: #A98BFF;
+  --color-secondary: #A78BFA;
+  --color-bg: #F8F8FA;
+  --color-success: #2BB673;
+  --color-expense: #F58B2A;
+  --color-danger: #E05A5A;
+  --color-text-primary: #2D3340;
+  --color-text-secondary: #7B8190;
+  --color-card-green: #E8F5EF;
+  --color-card-orange: #FFF3E8;
+  --color-card-violet: #F1EEFF;
+  --color-card-gray: #F7F7F9;
+  --font-nunito: 'Nunito', sans-serif;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 250ms ease-out;
+}
+@utility animate-slide-up {
+  animation: slide-up 250ms ease-out;
+}
+@utility animate-scale-in {
+  animation: scale-in 250ms ease-out;
+}
+
+body {
+  font-family: var(--font-nunito);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
