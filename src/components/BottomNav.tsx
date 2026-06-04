@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import { Home, TrendingUp, TrendingDown, Settings } from 'lucide-react'
 
 const links = [
-  { to: '/', label: 'Inicio' },
-  { to: '/incomes', label: 'Ingresos' },
-  { to: '/expenses', label: 'Gastos' },
-  { to: '/settings', label: 'Ajustes' },
+  { to: '/', label: 'Inicio', icon: Home },
+  { to: '/incomes', label: 'Ingresos', icon: TrendingUp },
+  { to: '/expenses', label: 'Gastos', icon: TrendingDown },
+  { to: '/settings', label: 'Ajustes', icon: Settings },
 ]
 
 export function BottomNav() {
@@ -17,11 +18,12 @@ export function BottomNav() {
             to={link.to}
             end={link.to === '/'}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center py-3 text-sm font-semibold transition-colors ${
+              `flex flex-1 flex-col items-center gap-1 py-3.5 text-sm font-semibold transition-colors ${
                 isActive ? 'text-primary' : 'text-text-secondary'
               }`
             }
           >
+            <link.icon className="h-6 w-6" />
             {link.label}
           </NavLink>
         ))}
