@@ -20,7 +20,7 @@ describe('generateId', () => {
 })
 
 describe('db schema', () => {
-  it('has all 6 tables', () => {
+  it('has all 7 tables', () => {
     const tableNames = db.tables.map((t: any) => t.name).sort()
     expect(tableNames).toEqual([
       'creditCards',
@@ -28,6 +28,7 @@ describe('db schema', () => {
       'expenses',
       'incomes',
       'installmentPurchases',
+      'recurringExpenseOccurrences',
       'recurringExpenses',
     ])
   })

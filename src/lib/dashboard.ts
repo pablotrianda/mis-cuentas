@@ -1,4 +1,4 @@
-import type { DashboardData } from './shared-types'
+import type { DashboardData, MonthlyRecurringSummary } from './shared-types'
 import { getProjectedExpenses } from './projections'
 import { db } from './db'
 
@@ -66,6 +66,29 @@ export async function getDashboardData(month: string): Promise<DashboardData> {
     categoryColor: e.categoryColor,
   }))
 
+  const [targetYear, targetMonth] = month.split('-').map(Number)
+  const occurrences = await db.recurringExpenseOccurrences
+    .where('[year+month]')
+    .equals([targetYear!, targetMonth!])
+    .toArray()
+
+  const allRecurring = await db.recurringExpenses.toArray()
+  const recMap = new Map(allRecurring.map((r) => [r.id, r]))
+
+  const items = occurrences.map((o) => {
+    const rec = recMap.get(o.recurringExpenseId)
+    return { ...o, description: rec?.description ?? '' }
+  })
+  const pendingAmount = items.filter((i) => !i.paid).reduce((s, i) => s + i.amount, 0)
+  const paidAmount = items.filter((i) => i.paid).reduce((s, i) => s + i.amount, 0)
+
+  const recurringSummary: MonthlyRecurringSummary = {
+    pending: pendingAmount,
+    paid: paidAmount,
+    total: pendingAmount + paidAmount,
+    items,
+  }
+
   return {
     totalIncomes,
     totalExpenses,
@@ -83,5 +106,6 @@ export async function getDashboardData(month: string): Promise<DashboardData> {
     })),
     categoryBreakdown,
     recentTransactions,
+    recurringSummary,
   }
 }

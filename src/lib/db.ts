@@ -39,7 +39,22 @@ export interface RecurringExpense {
   amount: number
   categoryId: string
   startDate: string
+  endDate?: string
+  cardId?: string | null
   active: boolean
+  createdAt: string
+}
+
+export interface RecurringExpenseOccurrence {
+  id: string
+  recurringExpenseId: string
+  year: number
+  month: number
+  amount: number
+  dueDate: string
+  paid: boolean
+  paidAt?: string
+  notes?: string
   createdAt: string
 }
 
@@ -78,15 +93,17 @@ const db = new Dexie('misCuentas') as Dexie & {
   expenses: EntityTable<Expense, 'id'>
   installmentPurchases: EntityTable<InstallmentPurchase, 'id'>
   recurringExpenses: EntityTable<RecurringExpense, 'id'>
+  recurringExpenseOccurrences: EntityTable<RecurringExpenseOccurrence, 'id'>
   creditCards: EntityTable<CreditCard, 'id'>
   expenseCategories: EntityTable<ExpenseCategory, 'id'>
 }
 
-db.version(2).stores({
+db.version(3).stores({
   incomes: 'id, date, createdAt',
   expenses: 'id, date, categoryId, cardId, createdAt',
   installmentPurchases: 'id, status, categoryId, cardId, createdAt',
   recurringExpenses: 'id, active, createdAt',
+  recurringExpenseOccurrences: 'id, recurringExpenseId, [year+month], paid, createdAt',
   creditCards: 'id',
   expenseCategories: 'id, isDefault',
 })

@@ -87,8 +87,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         const purchaseId = rest.slice(0, lastDash)
         await db.installmentPurchases.update(purchaseId, { status: 'FINISHED' })
       } else if (id.startsWith('proj-rec-')) {
-        const recurringId = id.slice('proj-rec-'.length)
-        await db.recurringExpenses.update(recurringId, { active: false })
+        const occurrenceId = id.slice('proj-rec-'.length)
+        const occurrence = await db.recurringExpenseOccurrences.get(occurrenceId)
+        if (occurrence) {
+          await db.recurringExpenses.update(occurrence.recurringExpenseId, { active: false })
+        }
       } else {
         await db.expenses.delete(id)
       }

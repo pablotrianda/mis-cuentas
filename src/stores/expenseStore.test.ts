@@ -115,8 +115,14 @@ describe('useExpenseStore', () => {
       categoryId: 'cat-a', startDate: '2026-01-01',
       active: true, createdAt: now,
     })
+    const occId = 'occ-1'
+    await db.recurringExpenseOccurrences.add({
+      id: occId, recurringExpenseId: 'rec-1',
+      year: 2026, month: 6, amount: 50000,
+      dueDate: '2026-06-01', paid: false, createdAt: now,
+    })
 
-    await useExpenseStore.getState().remove('proj-rec-rec-1')
+    await useExpenseStore.getState().remove(`proj-rec-${occId}`)
     const rec = await db.recurringExpenses.get('rec-1')
     expect(rec?.active).toBe(false)
   })

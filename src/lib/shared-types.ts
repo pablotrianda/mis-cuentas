@@ -52,6 +52,8 @@ export interface CreateRecurringExpense {
   description: string
   categoryId: string
   startDate: string
+  endDate?: string
+  cardId?: string | null
 }
 
 export interface UpdateRecurringExpense {
@@ -59,6 +61,31 @@ export interface UpdateRecurringExpense {
   amount?: number
   description?: string
   categoryId?: string
+  endDate?: string
+  cardId?: string | null
+}
+
+export interface RecurringExpenseOccurrence {
+  id: string
+  recurringExpenseId: string
+  year: number
+  month: number
+  amount: number
+  dueDate: string
+  paid: boolean
+  paidAt?: string
+  notes?: string
+}
+
+export interface RecurringOccurrenceWithDescription extends RecurringExpenseOccurrence {
+  description: string
+}
+
+export interface MonthlyRecurringSummary {
+  pending: number
+  paid: number
+  total: number
+  items: RecurringOccurrenceWithDescription[]
 }
 
 export interface CreditCard {
@@ -110,4 +137,5 @@ export interface DashboardData {
     categoryName: string
     categoryColor: string
   }>
+  recurringSummary: MonthlyRecurringSummary
 }

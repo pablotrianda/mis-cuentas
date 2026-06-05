@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon, Check, Repeat } from 'lucide-react'
 import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useDashboardStore } from '../../stores/dashboardStore'
 import { useInstallmentStore } from '../../stores/installmentStore'
-import { formatMonth, formatARS } from '../../lib/formatters'
+import { useRecurringExpenseOccurrenceStore } from '../../stores/recurringExpenseOccurrenceStore'
+import { formatMonth, formatARS, formatDate } from '../../lib/formatters'
 import { computeDebtFromMonth } from '../../lib/future-debt'
 import { BalanceCard } from '../../components/BalanceCard'
 import { SummaryCardGrid } from '../../components/SummaryCardGrid'
@@ -20,6 +21,9 @@ export function DashboardPage() {
   const { data, loading, fetchAll } = useDashboardStore()
   const installmentItems = useInstallmentStore((s) => s.items)
   const fetchInstallments = useInstallmentStore((s) => s.fetchAll)
+  const recurringSummary = useRecurringExpenseOccurrenceStore((s) => s.summary)
+  const fetchOccurrences = useRecurringExpenseOccurrenceStore((s) => s.fetchMonth)
+  const markRecurringPaid = useRecurringExpenseOccurrenceStore((s) => s.markPaid)
 
   useEffect(() => {
     fetchInstallments()
@@ -44,9 +48,22 @@ export function DashboardPage() {
     [markInstallmentPaid, fetchAll, month],
   )
 
+  const handleMarkRecurringPaid = useCallback(
+    async (occurrenceId: string) => {
+      await markRecurringPaid(occurrenceId)
+      fetchAll(month)
+    },
+    [markRecurringPaid, fetchAll, month],
+  )
+
   useEffect(() => {
     fetchAll(month)
   }, [month, fetchAll])
+
+  useEffect(() => {
+    const [y, m] = month.split('-').map(Number)
+    if (y && m) fetchOccurrences(y, m)
+  }, [month, fetchOccurrences])
 
   return (
     <div className="space-y-5">
@@ -93,6 +110,52 @@ export function DashboardPage() {
             installments={data.totalByPaymentType.INSTALLMENTS ?? 0}
             recurring={data.totalByPaymentType.RECURRING ?? 0}
           />
+
+          {recurringSummary && recurringSummary.total > 0 && (
+            <SectionCard title="Gastos fijos del mes" icon={<Repeat size={16} />}>
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-yellow-50 p-2.5 text-center">
+                  <p className="text-[10px] font-medium text-yellow-700">Pendientes</p>
+                  <p className="text-sm font-bold text-yellow-800">{formatARS(recurringSummary.pending)}</p>
+                </div>
+                <div className="rounded-lg bg-green-50 p-2.5 text-center">
+                  <p className="text-[10px] font-medium text-green-700">Pagados</p>
+                  <p className="text-sm font-bold text-green-800">{formatARS(recurringSummary.paid)}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2.5 text-center">
+                  <p className="text-[10px] font-medium text-gray-600">Total</p>
+                  <p className="text-sm font-bold text-gray-800">{formatARS(recurringSummary.total)}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                {recurringSummary.items.slice(0, 5).map((occ) => (
+                  <div key={occ.id} className="group flex items-center justify-between rounded-lg px-1 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{occ.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-text-secondary">
+                        <span>{formatARS(occ.amount)}</span>
+                        {occ.paid && occ.paidAt && (
+                          <span className="text-green-600">Pagado el {formatDate(occ.paidAt)}</span>
+                        )}
+                      </div>
+                    </div>
+                    {!occ.paid ? (
+                      <button
+                        onClick={() => handleMarkRecurringPaid(occ.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-green-200 bg-white text-green-600 opacity-0 transition-opacity hover:bg-green-50 group-hover:opacity-100"
+                        title="Marcar pagado"
+                      >
+                        <Check size={14} />
+                      </button>
+                    ) : (
+                      <Check size={16} className="text-green-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          )}
 
           {data.perCardSpending.length > 0 && (
             <SectionCard

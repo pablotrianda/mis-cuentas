@@ -1,4 +1,4 @@
-import { db, type InstallmentPurchase, type RecurringExpense } from './db'
+import { db, type InstallmentPurchase } from './db'
 import type { ExpenseResponseItem } from '../types'
 
 function getInstallmentDate(
@@ -54,40 +54,6 @@ function projectInstallment(
   return null
 }
 
-function projectRecurring(
-  recurring: RecurringExpense,
-  category: { name: string; color: string },
-  targetMonth: string,
-): ExpenseResponseItem | null {
-  if (!recurring.active) return null
-
-  const [year, month] = targetMonth.split('-').map(Number)
-  const targetEnd = new Date(year!, month!, 0)
-  const startDate = new Date(recurring.startDate)
-
-  if (startDate > targetEnd) return null
-
-  return {
-    id: `proj-rec-${recurring.id}`,
-    amount: recurring.amount,
-    description: recurring.description,
-    date: `${targetMonth}-01`,
-    categoryId: recurring.categoryId,
-    categoryName: category.name,
-    categoryColor: category.color,
-    cardId: null,
-    cardName: null,
-    cardColor: null,
-    paymentType: 'RECURRING',
-    type: 'recurring',
-    purchaseId: null,
-    installmentNumber: null,
-    totalInstallments: null,
-    recurringId: recurring.id,
-    createdAt: null,
-  }
-}
-
 export async function getProjectedExpenses(month: string): Promise<ExpenseResponseItem[]> {
   const realExpenses = await db.expenses
     .where('date')
@@ -96,9 +62,6 @@ export async function getProjectedExpenses(month: string): Promise<ExpenseRespon
 
   const allInstallments = await db.installmentPurchases.toArray()
   const activeInstallments = allInstallments.filter((p) => p.status === 'ACTIVE')
-
-  const allRecurring = await db.recurringExpenses.toArray()
-  const activeRecurring = allRecurring.filter((r) => r.active)
 
   const allCategories = await db.expenseCategories.toArray()
   const allCards = await db.creditCards.toArray()
@@ -138,12 +101,39 @@ export async function getProjectedExpenses(month: string): Promise<ExpenseRespon
     })
     .filter((x): x is ExpenseResponseItem => x !== null)
 
-  const recurringItems = activeRecurring
-    .map((r) => {
-      const cat = catMap.get(r.categoryId)
-      return projectRecurring(r, cat ?? { name: '', color: '#7B8190' }, month)
-    })
-    .filter((x): x is ExpenseResponseItem => x !== null)
+  const [targetYear, targetMonth] = month.split('-').map(Number)
+
+  const occurrences = await db.recurringExpenseOccurrences
+    .where('[year+month]')
+    .equals([targetYear!, targetMonth!])
+    .toArray()
+
+  const allRecurring = await db.recurringExpenses.toArray()
+  const recMap = new Map(allRecurring.map((r) => [r.id, r]))
+
+  const recurringItems: ExpenseResponseItem[] = occurrences.map((o) => {
+    const rec = recMap.get(o.recurringExpenseId)
+    const cat = rec ? catMap.get(rec.categoryId) : undefined
+    return {
+      id: `proj-rec-${o.id}`,
+      amount: o.amount,
+      description: rec?.description ?? '',
+      date: o.dueDate,
+      categoryId: rec?.categoryId ?? '',
+      categoryName: cat?.name ?? '',
+      categoryColor: cat?.color ?? '#7B8190',
+      cardId: rec?.cardId ?? null,
+      cardName: null,
+      cardColor: null,
+      paymentType: 'RECURRING',
+      type: 'recurring',
+      purchaseId: null,
+      installmentNumber: null,
+      totalInstallments: null,
+      recurringId: rec?.id ?? null,
+      createdAt: null,
+    }
+  })
 
   return [...realItems, ...installmentItems, ...recurringItems]
 }

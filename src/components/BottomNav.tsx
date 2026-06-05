@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { Home, TrendingUp, TrendingDown, Settings } from 'lucide-react'
+import { Home, TrendingUp, TrendingDown, Repeat, Settings } from 'lucide-react'
 
 const links = [
   { to: '/', label: 'Inicio', icon: Home },
   { to: '/incomes', label: 'Ingresos', icon: TrendingUp },
   { to: '/expenses', label: 'Gastos', icon: TrendingDown },
+  { to: '/fixed-expenses', label: 'Fijos', icon: Repeat },
   { to: '/settings', label: 'Ajustes', icon: Settings },
 ]
 

@@ -40,6 +40,12 @@ async function seedFullData() {
     categoryId: 'cat-a', startDate: '2026-01-01',
     active: true, createdAt: now,
   })
+  await db.recurringExpenseOccurrences.add({
+    id: generateId(), recurringExpenseId: 'rec-1',
+    year: 2026, month: 6, amount: 50000,
+    dueDate: '2026-06-01', paid: false,
+    createdAt: now,
+  })
 }
 
 describe('getDashboardData', () => {
@@ -54,6 +60,7 @@ describe('getDashboardData', () => {
     expect(data.perCardSpending).toEqual([])
     expect(data.categoryBreakdown).toEqual([])
     expect(data.recentTransactions).toEqual([])
+    expect(data.recurringSummary.total).toBe(0)
   })
 
   it('computes totals correctly', async () => {
@@ -122,5 +129,47 @@ describe('getDashboardData', () => {
         data.recentTransactions[i - 1]!.date >= data.recentTransactions[i]!.date,
       ).toBe(true)
     }
+  })
+
+  it('returns recurring summary with pending/paid totals', async () => {
+    await seedFullData()
+    const data = await getDashboardData('2026-06')
+
+    expect(data.recurringSummary.total).toBe(50000)
+    expect(data.recurringSummary.pending).toBe(50000)
+    expect(data.recurringSummary.paid).toBe(0)
+    expect(data.recurringSummary.items).toHaveLength(1)
+  })
+
+  it('recurring summary reflects paid occurrences', async () => {
+    const now = new Date().toISOString()
+    await db.expenseCategories.bulkAdd([
+      { id: 'cat-a', name: 'Alquiler', icon: 'home', color: '#5B5FEF', isDefault: true, createdAt: now },
+    ])
+    await db.recurringExpenses.add({
+      id: 'rec-1', amount: 50000, description: 'Alquiler',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      active: true, createdAt: now,
+    })
+    await db.recurringExpenseOccurrences.bulkAdd([
+      {
+        id: generateId(), recurringExpenseId: 'rec-1',
+        year: 2026, month: 6, amount: 50000,
+        dueDate: '2026-06-01', paid: true, paidAt: '2026-06-03T10:00:00Z',
+        createdAt: now,
+      },
+      {
+        id: generateId(), recurringExpenseId: 'rec-1',
+        year: 2026, month: 6, amount: 30000,
+        dueDate: '2026-06-01', paid: false,
+        createdAt: now,
+      },
+    ])
+
+    const data = await getDashboardData('2026-06')
+    expect(data.recurringSummary.total).toBe(80000)
+    expect(data.recurringSummary.paid).toBe(50000)
+    expect(data.recurringSummary.pending).toBe(30000)
+    expect(data.recurringSummary.items).toHaveLength(2)
   })
 })

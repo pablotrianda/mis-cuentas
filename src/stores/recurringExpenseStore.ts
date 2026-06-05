@@ -36,6 +36,8 @@ export const useRecurringExpenseStore = create<RecurringExpenseState>((set) => (
       amount: data.amount,
       categoryId: data.categoryId,
       startDate: data.startDate,
+      endDate: data.endDate,
+      cardId: data.cardId ?? null,
       active: true,
       createdAt: now,
     }

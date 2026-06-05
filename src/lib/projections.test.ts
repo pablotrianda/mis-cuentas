@@ -18,6 +18,36 @@ async function seedDefaults() {
   ])
 }
 
+async function seedRecurring(overrides: Partial<{ id: string; amount: number; description: string; categoryId: string; startDate: string; active: boolean }> = {}) {
+  const now = new Date().toISOString()
+  const id = overrides.id ?? 'rec-1'
+  await db.recurringExpenses.add({
+    id,
+    description: overrides.description ?? 'Alquiler',
+    amount: overrides.amount ?? 50000,
+    categoryId: overrides.categoryId ?? 'cat-a',
+    startDate: overrides.startDate ?? '2026-01-01',
+    active: overrides.active ?? true,
+    createdAt: now,
+  })
+  return id
+}
+
+async function seedOccurrence(recId: string, year: number, month: number, amount: number, overrides: Partial<{ paid: boolean; paidAt: string }> = {}) {
+  const now = new Date().toISOString()
+  await db.recurringExpenseOccurrences.add({
+    id: generateId(),
+    recurringExpenseId: recId,
+    year,
+    month,
+    amount,
+    dueDate: `${year}-${String(month).padStart(2, '0')}-01`,
+    paid: overrides.paid ?? false,
+    paidAt: overrides.paidAt,
+    createdAt: now,
+  })
+}
+
 describe('getProjectedExpenses', () => {
   it('returns empty array for empty DB', async () => {
     const items = await getProjectedExpenses('2026-06')
@@ -149,14 +179,10 @@ describe('getProjectedExpenses', () => {
     expect(september).toHaveLength(0)
   })
 
-  it('projects active recurring expenses', async () => {
+  it('returns recurring expenses from occurrences', async () => {
     await seedDefaults()
-    const now = new Date().toISOString()
-    await db.recurringExpenses.add({
-      id: 'rec-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', startDate: '2026-01-01',
-      active: true, createdAt: now,
-    })
+    const id = await seedRecurring()
+    await seedOccurrence(id, 2026, 6, 50000)
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(1)
@@ -166,33 +192,25 @@ describe('getProjectedExpenses', () => {
     expect(items[0]!.id).toMatch(/^proj-rec-/)
   })
 
-  it('does not project recurring expense that has not started yet', async () => {
+  it('does not return recurring if no occurrence exists for that month', async () => {
     await seedDefaults()
-    const now = new Date().toISOString()
-    await db.recurringExpenses.add({
-      id: 'rec-1', amount: 50000, description: 'Seguro',
-      categoryId: 'cat-a', startDate: '2026-07-01',
-      active: true, createdAt: now,
-    })
+    await seedRecurring()
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(0)
   })
 
-  it('does not project inactive recurring expenses', async () => {
+  it('returns only paid recurring occurrences when marked paid', async () => {
     await seedDefaults()
-    const now = new Date().toISOString()
-    await db.recurringExpenses.add({
-      id: 'rec-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', startDate: '2026-01-01',
-      active: false, createdAt: now,
-    })
+    const id = await seedRecurring()
+    await seedOccurrence(id, 2026, 6, 50000, { paid: true, paidAt: '2026-06-05T12:00:00Z' })
 
     const items = await getProjectedExpenses('2026-06')
-    expect(items).toHaveLength(0)
+    expect(items).toHaveLength(1)
+    expect(items[0]!.amount).toBe(50000)
   })
 
-  it('merges real expenses, installments, and recurring expenses', async () => {
+  it('merges real expenses, installments, and recurring occurrences', async () => {
     await seedDefaults()
     const now = new Date().toISOString()
     await db.expenses.add({
@@ -206,11 +224,8 @@ describe('getProjectedExpenses', () => {
       purchaseDate: '2026-06-01',
       categoryId: 'cat-c', cardId: 'card-1', status: 'ACTIVE', createdAt: now,
     })
-    await db.recurringExpenses.add({
-      id: 'rec-1', amount: 50000, description: 'Alquiler',
-      categoryId: 'cat-a', startDate: '2026-01-01',
-      active: true, createdAt: now,
-    })
+    const recId = await seedRecurring()
+    await seedOccurrence(recId, 2026, 6, 50000)
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(3)
