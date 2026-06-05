@@ -192,9 +192,42 @@ describe('getProjectedExpenses', () => {
     expect(items[0]!.id).toMatch(/^proj-rec-/)
   })
 
-  it('does not return recurring if no occurrence exists for that month', async () => {
+  it('auto-generates occurrence if none exists for that month', async () => {
     await seedDefaults()
     await seedRecurring()
+
+    const items = await getProjectedExpenses('2026-06')
+    expect(items).toHaveLength(1)
+    expect(items[0]!.paymentType).toBe('RECURRING')
+    expect(items[0]!.amount).toBe(50000)
+  })
+
+  it('does not generate occurrence for inactive recurring', async () => {
+    await seedDefaults()
+    await seedRecurring({ active: false })
+
+    const items = await getProjectedExpenses('2026-06')
+    expect(items).toHaveLength(0)
+  })
+
+  it('does not generate occurrence if startDate is after target month', async () => {
+    await seedDefaults()
+    await seedRecurring({ startDate: '2026-08-01' })
+
+    const items = await getProjectedExpenses('2026-06')
+    expect(items).toHaveLength(0)
+  })
+
+  it('does not generate occurrence if endDate is before target month', async () => {
+    await seedDefaults()
+    const now = new Date().toISOString()
+    const id = 'rec-ended'
+    await db.recurringExpenses.add({
+      id, amount: 50000, description: 'Seguro',
+      categoryId: 'cat-a', startDate: '2026-01-01',
+      endDate: '2026-05-31',
+      active: true, createdAt: now,
+    })
 
     const items = await getProjectedExpenses('2026-06')
     expect(items).toHaveLength(0)

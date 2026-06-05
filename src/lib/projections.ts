@@ -1,4 +1,4 @@
-import { db, type InstallmentPurchase } from './db'
+import { db, generateId, type InstallmentPurchase } from './db'
 import type { ExpenseResponseItem } from '../types'
 
 function getInstallmentDate(
@@ -103,13 +103,44 @@ export async function getProjectedExpenses(month: string): Promise<ExpenseRespon
 
   const [targetYear, targetMonth] = month.split('-').map(Number)
 
+  const allRecurring = await db.recurringExpenses.toArray()
+  const activeRecurring = allRecurring.filter((r) => r.active)
+
+  const existingOccurrences = await db.recurringExpenseOccurrences
+    .where('[year+month]')
+    .equals([targetYear!, targetMonth!])
+    .toArray()
+  const existingIds = new Set(existingOccurrences.map((o) => o.recurringExpenseId))
+
+  const now = new Date()
+  const targetStart = new Date(targetYear!, targetMonth! - 1, 1)
+  const targetEnd = new Date(targetYear!, targetMonth!, 0)
+
+  for (const rec of activeRecurring) {
+    if (existingIds.has(rec.id)) continue
+    if (rec.endDate && new Date(rec.endDate) < targetStart) continue
+
+    const startDate = new Date(rec.startDate)
+    if (startDate > targetEnd) continue
+
+    await db.recurringExpenseOccurrences.add({
+      id: generateId(),
+      recurringExpenseId: rec.id,
+      year: targetYear!,
+      month: targetMonth!,
+      amount: rec.amount,
+      dueDate: `${month}-01`,
+      paid: false,
+      createdAt: now.toISOString(),
+    })
+  }
+
   const occurrences = await db.recurringExpenseOccurrences
     .where('[year+month]')
     .equals([targetYear!, targetMonth!])
     .toArray()
 
-  const allRecurring = await db.recurringExpenses.toArray()
-  const recMap = new Map(allRecurring.map((r) => [r.id, r]))
+  const recMap = new Map(activeRecurring.map((r) => [r.id, r]))
 
   const recurringItems: ExpenseResponseItem[] = occurrences.map((o) => {
     const rec = recMap.get(o.recurringExpenseId)

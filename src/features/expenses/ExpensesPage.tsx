@@ -64,6 +64,7 @@ export function ExpensesPage() {
 
   const [recurringAmount, setRecurringAmount] = useState('')
   const [startDate, setStartDate] = useState(currentMonthString())
+  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
     fetchAll()
@@ -122,6 +123,7 @@ export function ExpensesPage() {
     setCurrentInstallment(1)
     setPurchaseDate(todayString())
     setRecurringAmount('')
+    setEndDate('')
     setStartDate(currentMonthString())
   }, [])
 
@@ -158,7 +160,9 @@ export function ExpensesPage() {
         setRecurringAmount(centsToDisplay(rec.amount))
         setDescription(rec.description)
         setCategoryId(rec.categoryId)
+        setCardId(rec.cardId ?? '')
         setStartDate(rec.startDate.slice(0, 7))
+        setEndDate(rec.endDate?.slice(0, 7) ?? '')
       }
     }
   }
@@ -214,6 +218,8 @@ export function ExpensesPage() {
           description,
           categoryId,
           startDate: `${startDate}-01`,
+          endDate: endDate ? `${endDate}-01` : undefined,
+          cardId: cardId || null,
         }
         if (isEditing) {
           await useRecurringExpenseStore.getState().update(editingId, payload)
@@ -545,6 +551,18 @@ export function ExpensesPage() {
                     </option>
                   ))}
                 </select>
+                <select
+                  value={cardId}
+                  onChange={(e) => setCardId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Sin tarjeta</option>
+                  {cards.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-text-secondary">
                     Desde (mes)
@@ -553,6 +571,17 @@ export function ExpensesPage() {
                     type="month"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-text-secondary">
+                    Hasta (mes, opcional)
+                  </label>
+                  <input
+                    type="month"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
                   />
                 </div>
