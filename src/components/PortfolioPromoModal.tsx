@@ -65,22 +65,24 @@ export function PortfolioPromoModal({ imageUrl }: PortfolioPromoModalProps) {
       onClick={dismiss}
     >
       <div
-        className="animate-scale-in flex max-h-[95dvh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="animate-scale-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         style={{ maxWidth: '900px', width: '95%' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative max-h-[50vh] overflow-hidden">
+        <div className="relative">
           <button
             onClick={dismiss}
-            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/50"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
             aria-label="Cerrar"
           >
             ✕
           </button>
-          <button
+          <div
             onClick={openPortfolio}
-            className="block w-full cursor-pointer"
-            aria-label="Abrir portfolio"
+            className="cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') openPortfolio() }}
           >
             {imgError ? (
               <div className="flex h-48 items-center justify-center bg-gradient-to-br from-primary-start to-primary-end">
@@ -90,11 +92,11 @@ export function PortfolioPromoModal({ imageUrl }: PortfolioPromoModalProps) {
               <img
                 src={imageUrl}
                 alt="Kerux — Conocé nuestros desarrollos"
-                className="max-h-[50vh] w-full object-contain"
+                className="max-h-72 w-full object-cover"
                 onError={() => setImgError(true)}
               />
             )}
-          </button>
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
