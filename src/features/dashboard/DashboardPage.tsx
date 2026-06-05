@@ -2,7 +2,7 @@ import { useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { ChevronLeft, ChevronRight, CreditCard, ArrowRight, ChevronRight as ChevronRightIcon, Check } from 'lucide-react'
-import { useMonth } from '../../hooks/useMonth'
+import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useDashboardStore } from '../../stores/dashboardStore'
 import { useInstallmentStore } from '../../stores/installmentStore'
 import { formatMonth, formatARS } from '../../lib/formatters'
@@ -16,7 +16,7 @@ import { EmptyState } from '../../components/EmptyState'
 
 export function DashboardPage() {
   const navigate = useNavigate()
-  const { month, prevMonth, nextMonth } = useMonth()
+  const { month, prevMonth, nextMonth, setMonth } = useMonth()
   const { data, loading, fetchAll } = useDashboardStore()
   const installmentItems = useInstallmentStore((s) => s.items)
   const fetchInstallments = useInstallmentStore((s) => s.fetchAll)
@@ -57,9 +57,19 @@ export function DashboardPage() {
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="animate-fade-in text-sm font-bold capitalize text-text-primary">
-          {formatMonth(month)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="animate-fade-in text-sm font-bold capitalize text-text-primary">
+            {formatMonth(month)}
+          </span>
+          {month !== getCurrentMonth() && (
+            <button
+              onClick={() => setMonth(getCurrentMonth())}
+              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              Hoy
+            </button>
+          )}
+        </div>
         <button
           onClick={nextMonth}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-gray-100"

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-function getCurrentMonth(): string {
+export function getCurrentMonth(): string {
   const now = new Date()
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')

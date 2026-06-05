@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMonth } from '../../hooks/useMonth'
+import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useIncomeStore } from '../../stores/incomeStore'
 import { formatMonth, formatARS, formatDate } from '../../lib/formatters'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
@@ -16,7 +16,7 @@ function todayString(): string {
 }
 
 export function IncomesPage() {
-  const { month, prevMonth, nextMonth } = useMonth()
+  const { month, prevMonth, nextMonth, setMonth } = useMonth()
   const { items, loading, error, fetchAll, add, remove } = useIncomeStore()
   const [showForm, setShowForm] = useState(false)
   const [amount, setAmount] = useState('')
@@ -61,9 +61,19 @@ export function IncomesPage() {
         >
           &larr; Ant
         </button>
-        <span className="text-sm font-semibold capitalize text-text-primary">
-          {formatMonth(month)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold capitalize text-text-primary">
+            {formatMonth(month)}
+          </span>
+          {month !== getCurrentMonth() && (
+            <button
+              onClick={() => setMonth(getCurrentMonth())}
+              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              Hoy
+            </button>
+          )}
+        </div>
         <button
           onClick={nextMonth}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-gray-100"

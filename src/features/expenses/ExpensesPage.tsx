@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Pencil } from 'lucide-react'
-import { useMonth } from '../../hooks/useMonth'
+import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useCategories } from '../../hooks/useCategories'
 import { useCreditCards } from '../../hooks/useCreditCards'
 import { useExpenseStore } from '../../stores/expenseStore'
@@ -42,7 +42,7 @@ const BADGE_LABELS: Record<string, string> = {
 }
 
 export function ExpensesPage() {
-  const { month, prevMonth, nextMonth } = useMonth()
+  const { month, prevMonth, nextMonth, setMonth } = useMonth()
   const { categories } = useCategories()
   const { cards } = useCreditCards()
   const { items, loading, error, typeFilter, setTypeFilter, fetchAll, addOneTime, updateOneTime, remove } =
@@ -260,9 +260,19 @@ export function ExpensesPage() {
         >
           &larr; Ant
         </button>
-        <span className="text-sm font-semibold capitalize text-text-primary">
-          {formatMonth(month)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold capitalize text-text-primary">
+            {formatMonth(month)}
+          </span>
+          {month !== getCurrentMonth() && (
+            <button
+              onClick={() => setMonth(getCurrentMonth())}
+              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              Hoy
+            </button>
+          )}
+        </div>
         <button
           onClick={nextMonth}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-gray-100"
