@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Clock } from 'lucide-react'
+import { Plus, Pencil, Clock, Trash2 } from 'lucide-react'
 import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useRecurringExpenseStore } from '../../stores/recurringExpenseStore'
 import { useCategories } from '../../hooks/useCategories'
@@ -11,7 +11,7 @@ import { AmountInput, displayToCents } from '../../components/AmountInput'
 export function FixedExpensesPage() {
   const navigate = useNavigate()
   const { month, prevMonth, nextMonth, setMonth } = useMonth()
-  const { items, loading, fetchAll } = useRecurringExpenseStore()
+  const { items, loading, fetchAll, remove } = useRecurringExpenseStore()
   const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
@@ -100,15 +100,28 @@ export function FixedExpensesPage() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      navigate(`/fixed-expenses/${rec.id}`)
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-gray-100"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`¿Eliminar "${rec.description}"?`)) {
+                          remove(rec.id)
+                        }
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-expense transition-colors hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/fixed-expenses/${rec.id}`)
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-gray-100"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                 </div>
               </button>
             )

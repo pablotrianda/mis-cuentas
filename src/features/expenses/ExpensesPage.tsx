@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { Pencil } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useMonth, getCurrentMonth } from '../../hooks/useMonth'
 import { useCategories } from '../../hooks/useCategories'
 import { useCreditCards } from '../../hooks/useCreditCards'
@@ -22,23 +22,14 @@ function todayString(): string {
   return `${y}-${m}-${d}`
 }
 
-function currentMonthString(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
-}
-
 const FILTERS = [
   { key: null, label: 'Todos' },
   { key: 'ONE_TIME', label: 'Una vez' },
   { key: 'INSTALLMENTS', label: 'Cuotas' },
-  { key: 'RECURRING', label: 'Recurrentes' },
 ] as const
 
 const BADGE_LABELS: Record<string, string> = {
   installment: 'Proyectado',
-  recurring: 'Mensual',
 }
 
 export function ExpensesPage() {
@@ -62,13 +53,20 @@ export function ExpensesPage() {
   const [currentInstallment, setCurrentInstallment] = useState(1)
   const [purchaseDate, setPurchaseDate] = useState(todayString())
 
-  const [recurringAmount, setRecurringAmount] = useState('')
-  const [startDate, setStartDate] = useState(currentMonthString())
-  const [endDate, setEndDate] = useState('')
+  useEffect(() => {
+    if (typeFilter === 'RECURRING') {
+      setTypeFilter(null)
+    }
+  }, [typeFilter, setTypeFilter])
 
   useEffect(() => {
     fetchAll()
   }, [month, typeFilter, fetchAll])
+
+  const visibleItems = useMemo(
+    () => items.filter((i) => i.paymentType !== 'RECURRING'),
+    [items],
+  )
 
   const installmentAmount = useMemo(() => {
     const total = displayToCents(totalAmount)
@@ -76,14 +74,11 @@ export function ExpensesPage() {
   }, [totalAmount, totalInstallments])
 
   const summaryCards = useMemo(() => {
-    const oneTime = items
+    const oneTime = visibleItems
       .filter((i) => i.paymentType === 'ONE_TIME')
       .reduce((s, i) => s + i.amount, 0)
-    const installments = items
+    const installments = visibleItems
       .filter((i) => i.paymentType === 'INSTALLMENTS')
-      .reduce((s, i) => s + i.amount, 0)
-    const recurring = items
-      .filter((i) => i.paymentType === 'RECURRING')
       .reduce((s, i) => s + i.amount, 0)
     return [
       {
@@ -100,15 +95,8 @@ export function ExpensesPage() {
         icon: '#',
         filter: 'INSTALLMENTS',
       },
-      {
-        label: 'Recurrentes',
-        amount: recurring,
-        bg: 'bg-[#F1EEFF]',
-        icon: '~',
-        filter: 'RECURRING',
-      },
     ]
-  }, [items])
+  }, [visibleItems])
 
   const resetForm = useCallback(() => {
     setEditingId(null)
@@ -122,9 +110,6 @@ export function ExpensesPage() {
     setTotalInstallments(3)
     setCurrentInstallment(1)
     setPurchaseDate(todayString())
-    setRecurringAmount('')
-    setEndDate('')
-    setStartDate(currentMonthString())
   }, [])
 
   async function handleEdit(item: ExpenseResponseItem) {
@@ -151,18 +136,6 @@ export function ExpensesPage() {
         setPurchaseDate(purchase.purchaseDate)
         setCategoryId(purchase.categoryId)
         setCardId(purchase.cardId ?? '')
-      }
-    } else if (item.type === 'recurring' && item.recurringId) {
-      setPaymentType('RECURRING')
-      setEditingId(item.recurringId)
-      const rec = await db.recurringExpenses.get(item.recurringId)
-      if (rec) {
-        setRecurringAmount(centsToDisplay(rec.amount))
-        setDescription(rec.description)
-        setCategoryId(rec.categoryId)
-        setCardId(rec.cardId ?? '')
-        setStartDate(rec.startDate.slice(0, 7))
-        setEndDate(rec.endDate?.slice(0, 7) ?? '')
       }
     }
   }
@@ -208,24 +181,6 @@ export function ExpensesPage() {
         } else {
           await useInstallmentStore.getState().add(payload)
         }
-      } else {
-        if (!recurringAmount.trim() || displayToCents(recurringAmount) <= 0) return
-        if (!description.trim()) return
-        if (!categoryId) return
-        const { useRecurringExpenseStore } = await import('../../stores/recurringExpenseStore')
-        const payload = {
-          amount: displayToCents(recurringAmount),
-          description,
-          categoryId,
-          startDate: `${startDate}-01`,
-          endDate: endDate ? `${endDate}-01` : undefined,
-          cardId: cardId || null,
-        }
-        if (isEditing) {
-          await useRecurringExpenseStore.getState().update(editingId, payload)
-        } else {
-          await useRecurringExpenseStore.getState().add(payload)
-        }
       }
       resetForm()
       setShowForm(false)
@@ -239,9 +194,7 @@ export function ExpensesPage() {
     const label =
       item.type === 'installment'
         ? 'finalizar la compra en cuotas'
-        : item.type === 'recurring'
-          ? 'desactivar el gasto recurrente'
-          : 'eliminar'
+        : 'eliminar el gasto'
     if (!confirm(`¿${label}?`)) return
     try {
       await remove(item.id)
@@ -291,7 +244,7 @@ export function ExpensesPage() {
         <div className="rounded-xl bg-red-50 px-4 py-2 text-xs text-red-600">{error}</div>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {summaryCards.map((card) => (
           <button
             key={card.filter}
@@ -331,12 +284,12 @@ export function ExpensesPage() {
 
       {loading && <LoadingSpinner />}
 
-      {!loading && items.length === 0 && (
+      {!loading && visibleItems.length === 0 && (
         <EmptyState message={`Sin gastos este mes — ${currentTabLabel.toLowerCase()}`} />
       )}
 
       <div className="space-y-2">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <div key={item.id} className="relative group">
             <button onClick={() => handleEdit(item)} className="w-full text-left">
               <TransactionTile
@@ -348,22 +301,16 @@ export function ExpensesPage() {
                 badge={BADGE_LABELS[item.type]}
               />
             </button>
-            <div className="absolute right-2 top-2 flex gap-0.5">
-              <button
-                onClick={() => handleEdit(item)}
-                className="flex h-6 w-6 items-center justify-center rounded text-text-secondary opacity-0 transition-opacity hover:bg-gray-100 group-hover:opacity-100"
-                aria-label="Editar"
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                onClick={() => handleDelete(item)}
-                className="flex h-6 w-6 items-center justify-center rounded text-expense opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100"
-                aria-label="Eliminar"
-              >
-                x
-              </button>
-            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(item)
+              }}
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-expense shadow-sm transition-opacity hover:bg-red-50 md:opacity-0 md:group-hover:opacity-100"
+              aria-label="Eliminar"
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         ))}
       </div>
@@ -376,7 +323,7 @@ export function ExpensesPage() {
 
           {!editingId && (
             <div className="mb-4 flex gap-2">
-              {(['ONE_TIME', 'INSTALLMENTS', 'RECURRING'] as const).map((t) => (
+              {(['ONE_TIME', 'INSTALLMENTS'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -387,11 +334,7 @@ export function ExpensesPage() {
                       : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                   }`}
                 >
-                  {t === 'ONE_TIME'
-                    ? 'Una vez'
-                    : t === 'INSTALLMENTS'
-                      ? 'Cuotas'
-                      : 'Recurrente'}
+                  {t === 'ONE_TIME' ? 'Una vez' : 'Cuotas'}
                 </button>
               ))}
             </div>
@@ -524,67 +467,6 @@ export function ExpensesPage() {
                   onChange={(e) => setPurchaseDate(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
                 />
-              </>
-            )}
-
-            {paymentType === 'RECURRING' && (
-              <>
-                <AmountInput value={recurringAmount} onChange={setRecurringAmount} />
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descripción"
-                  required
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">Categoría</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={cardId}
-                  onChange={(e) => setCardId(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">Sin tarjeta</option>
-                  {cards.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-text-secondary">
-                    Desde (mes)
-                  </label>
-                  <input
-                    type="month"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-text-secondary">
-                    Hasta (mes, opcional)
-                  </label>
-                  <input
-                    type="month"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
-                  />
-                </div>
               </>
             )}
 
