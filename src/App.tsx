@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { AppLayout } from './components/AppLayout'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { IncomesPage } from './features/incomes/IncomesPage'
@@ -11,7 +12,9 @@ import { FixedExpenseDetailPage } from './features/fixed-expenses/FixedExpenseDe
 
 function App() {
   return (
-    <Routes>
+    <>
+      <Analytics />
+      <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/incomes" element={<IncomesPage />} />
@@ -23,6 +26,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
+    </>
   )
 }
 
